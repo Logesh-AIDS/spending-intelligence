@@ -36,7 +36,7 @@ export function CategoryChart({ data }: CategoryChartProps) {
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
           ))}
         </Pie>
-        <Tooltip formatter={(value) => `$${value.toFixed(2)}`} />
+        <Tooltip formatter={(value: number) => `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`} />
         <Legend />
       </PieChart>
     </ResponsiveContainer>

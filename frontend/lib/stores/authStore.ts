@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import { setAuthStore } from '@/lib/api';
 
+// Matches the backend UserResponse schema
 export interface User {
-  id: string;
+  id: number;
   email: string;
-  name: string;
-  avatar?: string;
+  full_name: string;   // backend uses full_name, not name
+  is_active: boolean;
 }
 
 interface AuthState {
@@ -19,15 +20,15 @@ interface AuthState {
   logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => {
-  const store = {
+export const useAuthStore = create<AuthState>((set, get) => {
+  const store: AuthState = {
     token: null,
     user: null,
     isLoading: false,
     isAuthenticated: false,
+
     setToken: (token: string | null) => {
       set({ token, isAuthenticated: !!token });
-      // Persist to localStorage
       if (typeof window !== 'undefined') {
         if (token) {
           localStorage.setItem('auth_token', token);
@@ -36,8 +37,11 @@ export const useAuthStore = create<AuthState>((set) => {
         }
       }
     },
+
     setUser: (user: User | null) => set({ user }),
+
     setIsLoading: (isLoading: boolean) => set({ isLoading }),
+
     logout: () => {
       set({ token: null, user: null, isAuthenticated: false });
       if (typeof window !== 'undefined') {
@@ -46,15 +50,16 @@ export const useAuthStore = create<AuthState>((set) => {
     },
   };
 
-  // Initialize from localStorage
+  // Restore token from localStorage on page load
   if (typeof window !== 'undefined') {
     const storedToken = localStorage.getItem('auth_token');
     if (storedToken) {
-      store.setToken(storedToken);
+      store.token = storedToken;
+      store.isAuthenticated = true;
     }
   }
 
-  // Register with API client
+  // Register with API client so interceptors have access to token + logout
   setAuthStore(store);
 
   return store;

@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [name, setName] = useState('');
+  const [full_name, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { mutate: register, isPending, error } = useRegister();
@@ -19,13 +19,19 @@ export default function RegisterPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     register(
-      { name, email, password },
+      { full_name, email, password },
       {
         onSuccess: () => {
-          router.push('/dashboard/dashboard');
+          router.push('/dashboard');   // fixed: was /dashboard/dashboard
         },
       }
     );
+  };
+
+  const getErrorMessage = () => {
+    if (!error) return null;
+    const axiosErr = error as any;
+    return axiosErr?.response?.data?.detail || error.message || 'Registration failed. Please try again.';
   };
 
   return (
@@ -38,13 +44,13 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="name">Full Name</Label>
+            <Label htmlFor="full_name">Full Name</Label>
             <Input
-              id="name"
+              id="full_name"
               type="text"
               placeholder="John Doe"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={full_name}
+              onChange={(e) => setFullName(e.target.value)}
               required
             />
           </div>
@@ -70,12 +76,13 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={6}
             />
           </div>
 
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-              {error instanceof Error ? error.message : 'Registration failed. Please try again.'}
+              {getErrorMessage()}
             </div>
           )}
 

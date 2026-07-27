@@ -11,7 +11,7 @@ interface StatCardProps {
 export function StatCard({ title, value, trend, format = 'number' }: StatCardProps) {
   const formattedValue =
     format === 'currency'
-      ? `$${value.toFixed(2)}`
+      ? `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       : format === 'percent'
         ? `${value.toFixed(1)}%`
         : value.toLocaleString();

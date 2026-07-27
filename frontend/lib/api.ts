@@ -1,11 +1,13 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+// FastAPI backend runs on port 8000
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-let authStore: { token: string | null } = { token: null };
+let authStore: { token: string | null; logout?: () => void } = { token: null };
 
-// Set auth store reference (called from store initialization)
-export const setAuthStore = (store: { token: string | null }) => {
+// Called from authStore initialization so the interceptor always reads the latest token
+export const setAuthStore = (store: { token: string | null; logout?: () => void }) => {
   authStore = store;
 };
 
@@ -16,7 +18,7 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// Request interceptor - add auth token
+// Request interceptor — attach JWT Bearer token to every request
 apiClient.interceptors.request.use(
   (config) => {
     if (authStore.token) {
@@ -24,20 +26,25 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor - handle auth errors
+// Response interceptor — on 401 clear auth and redirect to /login
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // Clear token and redirect to login
-      authStore.token = null;
+      if (authStore.logout) {
+        authStore.logout();
+      } else {
+        authStore.token = null;
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('auth_token');
+        }
+      }
       if (typeof window !== 'undefined') {
-        window.location.href = '/auth/login';
+        // /login is the correct route (not /auth/login)
+        window.location.href = '/login';
       }
     }
     return Promise.reject(error);

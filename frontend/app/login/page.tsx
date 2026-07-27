@@ -21,10 +21,20 @@ export default function LoginPage() {
       { email, password },
       {
         onSuccess: () => {
-          router.push('/dashboard/dashboard');
+          router.push('/dashboard');   // fixed: was /dashboard/dashboard
         },
       }
     );
+  };
+
+  const getErrorMessage = () => {
+    if (!error) return null;
+    if (error instanceof Error) {
+      // Surface the backend error detail if available
+      const axiosErr = error as any;
+      return axiosErr?.response?.data?.detail || error.message || 'Login failed. Please try again.';
+    }
+    return 'Login failed. Please try again.';
   };
 
   return (
@@ -62,7 +72,7 @@ export default function LoginPage() {
 
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-              {error instanceof Error ? error.message : 'Login failed. Please try again.'}
+              {getErrorMessage()}
             </div>
           )}
 

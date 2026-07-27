@@ -11,13 +11,16 @@ export function Header() {
 
   const handleLogout = () => {
     logout();
-    router.push('/auth/login');
+    router.push('/login');   // fixed: was /auth/login
   };
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between">
       <div className="text-sm text-slate-600">
-        Welcome, <span className="font-semibold text-slate-900">{user?.name || 'User'}</span>
+        Welcome,{' '}
+        <span className="font-semibold text-slate-900">
+          {user?.full_name || 'User'}  {/* fixed: was user?.name */}
+        </span>
       </div>
 
       <div className="flex items-center gap-4">

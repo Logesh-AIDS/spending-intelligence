@@ -2,10 +2,10 @@ import sys
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-# Allow imports from project root (ml/, automation/)
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.database.database import engine, Base
 
@@ -48,6 +48,18 @@ app = FastAPI(
     title="AI Spending Intelligence API",
     version="1.0.0",
     lifespan=lifespan,
+)
+
+# Allow the Next.js frontend to call the API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",   # Next.js dev server
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(auth_router)
