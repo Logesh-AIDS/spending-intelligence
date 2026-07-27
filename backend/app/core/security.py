@@ -3,11 +3,11 @@ from typing import Optional
 
 import bcrypt
 from jose import JWTError, jwt
+from app.core.config import settings
 
-# Secret key — in production this goes in .env
-SECRET_KEY = "spending-intelligence-secret-key-change-in-production"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = settings.ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
 
 def hash_password(password: str) -> str:
