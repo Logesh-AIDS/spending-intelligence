@@ -43,6 +43,8 @@ class PredictionService:
 
         # Build feature vector — fill missing with 0
         X = pd.DataFrame([{f: user_features.get(f, 0) for f in features}])
+        # Replace any NaN that slipped through with 0 — models can't handle NaN
+        X = X.fillna(0)
 
         # Scale if needed (linear models require scaling)
         algo = metadata.get("algorithm", "")
@@ -82,6 +84,7 @@ class PredictionService:
             model_reg = reg_art["model"]
             features_reg = reg_art["features"]
             X_reg = pd.DataFrame([{f: user_features.get(f, 0) for f in features_reg}])
+            X_reg = X_reg.fillna(0)
             days = float(model_reg.predict(X_reg)[0])
             days = max(0, days)
             result["days_until_low_balance"] = round(days, 1)
@@ -97,6 +100,7 @@ class PredictionService:
             model_clf = clf_art["model"]
             features_clf = clf_art["features"]
             X_clf = pd.DataFrame([{f: user_features.get(f, 0) for f in features_clf}])
+            X_clf = X_clf.fillna(0)
             risk = int(model_clf.predict(X_clf)[0])
             proba = model_clf.predict_proba(X_clf)[0]
             result["low_balance_risk"] = risk
@@ -124,6 +128,7 @@ class PredictionService:
         features = artefacts["features"]
 
         X = pd.DataFrame([{f: transaction_features.get(f, 0) for f in features}])
+        X = X.fillna(0)
         X_scaled = scaler.transform(X)
 
         label = int(model.predict(X_scaled)[0])           # -1=anomaly, 1=normal
@@ -173,6 +178,7 @@ class PredictionService:
         features = artefacts["features"]
 
         X = pd.DataFrame([{f: user_features.get(f, 0) for f in features}])
+        X = X.fillna(0)
         X_scaled = scaler.transform(X)
         cluster = int(model.predict(X_scaled)[0])
 

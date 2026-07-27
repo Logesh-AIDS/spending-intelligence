@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List, Any
 from datetime import datetime
 
@@ -25,6 +25,21 @@ class GoalCreate(BaseModel):
     target_amount: float
     category: Optional[str] = None
     deadline: Optional[str] = None  # DD/MM/YY
+
+    @field_validator("target_amount")
+    @classmethod
+    def validate_target(cls, v):
+        if v <= 0:
+            raise ValueError("target_amount must be greater than 0")
+        return v
+
+    @field_validator("goal_type")
+    @classmethod
+    def validate_goal_type(cls, v):
+        valid = {"save", "limit_category", "limit_spending", "emergency_fund"}
+        if v not in valid:
+            raise ValueError(f"goal_type must be one of {valid}")
+        return v
 
 
 class GoalResponse(BaseModel):

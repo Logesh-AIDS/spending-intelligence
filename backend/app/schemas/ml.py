@@ -30,10 +30,11 @@ class SpendingPredictionResponse(BaseModel):
 
 
 class CashExhaustionResponse(BaseModel):
-    days_until_low_balance: Optional[float]
-    threshold: Optional[float]
-    low_balance_risk: Optional[int]
-    risk_probability: Optional[float]
+    days_until_low_balance: Optional[float] = None
+    threshold: Optional[float] = None
+    low_balance_risk: Optional[int] = None
+    risk_probability: Optional[float] = None
+    regressor_version: Optional[str] = None
 
 
 class AnomalyDetectionResponse(BaseModel):

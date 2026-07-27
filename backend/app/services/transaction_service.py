@@ -1,3 +1,4 @@
+import re
 from math import ceil
 from typing import Optional
 
@@ -36,18 +37,25 @@ def _get_or_404(db: Session, transaction_id: int, user_id: int) -> Transaction:
 # CREATE
 # ---------------------------------------------------------------------------
 
+def _sanitize(value: str | None) -> str | None:
+    """Strip HTML tags from string fields to prevent XSS storage."""
+    if value is None:
+        return None
+    return re.sub(r'<[^>]+>', '', str(value)).strip()
+
+
 def create_transaction(db: Session, payload: TransactionCreate, user_id: int) -> Transaction:
     txn = Transaction(
         user_id=user_id,
-        bank=payload.bank,
-        account_number=payload.account_number,
+        bank=_sanitize(payload.bank),
+        account_number=_sanitize(payload.account_number),
         transaction_type=payload.transaction_type,
         amount=payload.amount,
         date=payload.date,
-        merchant=payload.merchant,
-        upi_reference=payload.upi_reference,
+        merchant=_sanitize(payload.merchant),
+        upi_reference=_sanitize(payload.upi_reference),
         balance=payload.balance,
-        category=payload.category or "Others",
+        category=_sanitize(payload.category) or "Others",
     )
     db.add(txn)
     db.commit()
