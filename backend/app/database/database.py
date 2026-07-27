@@ -1,9 +1,11 @@
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-
-DATABASE_URL = "sqlite:///spending.db"
+# Absolute path — works regardless of working directory or script location
+_DB_PATH = Path(__file__).parent.parent.parent / "spending.db"
+DATABASE_URL = f"sqlite:///{_DB_PATH}"
 
 
 engine = create_engine(

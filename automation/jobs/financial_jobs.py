@@ -11,8 +11,9 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "backend"))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from app.database.database import SessionLocal
+from app.database.database import SessionLocal, engine, Base
 from app.models.user import User
+from app.models.transaction import Transaction as TxnModel  # avoids SQLAlchemy internal name clash
 from app.models.automation import Notification, FinancialHealthScore, AIInsight, JobLog
 
 from app.services.dashboard_service import get_dashboard_summary
@@ -47,6 +48,9 @@ def run_daily_analysis():
     3. Generate smart notifications
     Store results in DB.
     """
+    # Ensure all tables exist (important when running outside FastAPI)
+    Base.metadata.create_all(bind=engine)
+
     job_name = "daily_analysis"
     started_at = datetime.utcnow()
     print(f"[{started_at}] ▶ Running {job_name}...")
