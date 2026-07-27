@@ -1,66 +1,72 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { setAuthStore } from '@/lib/api';
 
-// Matches the backend UserResponse schema
 export interface User {
   id: number;
   email: string;
-  full_name: string;   // backend uses full_name, not name
+  full_name: string;
   is_active: boolean;
 }
 
 interface AuthState {
   token: string | null;
   user: User | null;
-  isLoading: boolean;
   isAuthenticated: boolean;
   setToken: (token: string | null) => void;
   setUser: (user: User | null) => void;
-  setIsLoading: (loading: boolean) => void;
   logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => {
-  const store: AuthState = {
-    token: null,
-    user: null,
-    isLoading: false,
-    isAuthenticated: false,
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
+      token: null,
+      user: null,
+      isAuthenticated: false,
 
-    setToken: (token: string | null) => {
-      set({ token, isAuthenticated: !!token });
-      if (typeof window !== 'undefined') {
-        if (token) {
-          localStorage.setItem('auth_token', token);
-        } else {
-          localStorage.removeItem('auth_token');
+      setToken: (token) => {
+        set({ token, isAuthenticated: !!token });
+      },
+
+      setUser: (user) => set({ user }),
+
+      logout: () => {
+        set({ token: null, user: null, isAuthenticated: false });
+      },
+    }),
+    {
+      name: 'auth_token',          // localStorage key
+      partialize: (state) => ({    // only persist token and user — not functions
+        token: state.token,
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+      }),
+      onRehydrateStorage: () => (state) => {
+        // After Zustand rehydrates from localStorage, register with api.ts
+        if (state) {
+          setAuthStore({
+            token: state.token,
+            logout: state.logout,
+          });
         }
-      }
-    },
-
-    setUser: (user: User | null) => set({ user }),
-
-    setIsLoading: (isLoading: boolean) => set({ isLoading }),
-
-    logout: () => {
-      set({ token: null, user: null, isAuthenticated: false });
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('auth_token');
-      }
-    },
-  };
-
-  // Restore token from localStorage on page load
-  if (typeof window !== 'undefined') {
-    const storedToken = localStorage.getItem('auth_token');
-    if (storedToken) {
-      store.token = storedToken;
-      store.isAuthenticated = true;
+      },
     }
-  }
+  )
+);
 
-  // Register with API client so interceptors have access to token + logout
-  setAuthStore(store);
+// Register initial state with api.ts on first load
+// (onRehydrateStorage handles refresh; this handles first login)
+const current = useAuthStore.getState();
+setAuthStore({
+  token: current.token,
+  logout: current.logout,
+});
 
-  return store;
+// Keep api.ts in sync whenever the store changes
+useAuthStore.subscribe((state) => {
+  setAuthStore({
+    token: state.token,
+    logout: state.logout,
+  });
 });

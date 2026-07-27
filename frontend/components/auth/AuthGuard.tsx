@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { useCurrentUser } from '@/lib/hooks/useAuth';
@@ -9,29 +9,30 @@ interface AuthGuardProps {
   children: React.ReactNode;
 }
 
-/**
- * Wraps protected pages.
- * - Redirects to /login if no token
- * - Fetches current user if token exists but user not loaded (page refresh)
- * - Shows nothing while loading to prevent flash
- */
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
-  const { token, user, isAuthenticated } = useAuthStore();
+  const { token, isAuthenticated } = useAuthStore();
+  const [hydrated, setHydrated] = useState(false);
 
-  // Rehydrate user from token on page refresh
+  // Wait one tick for Zustand to read localStorage before making any decisions
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  // Rehydrate user profile from token if page was refreshed
   useCurrentUser();
 
   useEffect(() => {
-    if (!token && !isAuthenticated) {
+    if (hydrated && !token) {
       router.replace('/login');
     }
-  }, [token, isAuthenticated, router]);
+  }, [hydrated, token, router]);
 
-  // Don't render children until we have confirmed auth
-  if (!token && !isAuthenticated) {
-    return null;
-  }
+  // Don't render or redirect until hydration is complete
+  if (!hydrated) return null;
+
+  // No token after hydration → redirect is in progress, show nothing
+  if (!token) return null;
 
   return <>{children}</>;
 }

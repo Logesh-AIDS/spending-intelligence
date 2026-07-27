@@ -29,12 +29,16 @@ export default function LoginPage() {
 
   const getErrorMessage = () => {
     if (!error) return null;
-    if (error instanceof Error) {
-      // Surface the backend error detail if available
-      const axiosErr = error as any;
-      return axiosErr?.response?.data?.detail || error.message || 'Login failed. Please try again.';
+    const axiosErr = error as any;
+    const detail = axiosErr?.response?.data?.detail;
+    const status = axiosErr?.response?.status;
+    const isNetworkError = !axiosErr?.response;
+
+    if (isNetworkError) {
+      return `Cannot reach server at ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}. Make sure the backend is running.`;
     }
-    return 'Login failed. Please try again.';
+    if (status === 401) return 'Incorrect email or password.';
+    return detail || axiosErr?.message || 'Login failed. Please try again.';
   };
 
   return (
