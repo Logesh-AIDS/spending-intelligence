@@ -1,0 +1,17 @@
+{
+  "model_name": "anomaly_detector",
+  "version": "20260727_092019",
+  "trained_at": "2026-07-27T09:20:19.715584",
+  "feature_count": 10,
+  "metrics": {
+    "contamination": 0.05,
+    "anomalies_found": 1
+  },
+  "algorithm": "IsolationForest",
+  "contamination": 0.05,
+  "comparison": {
+    "IsolationForest": 1,
+    "ZScore_3std": 0,
+    "LocalOutlierFactor": 1
+  }
+}

@@ -1,0 +1,1 @@
+["amount", "log_amount", "rolling_7d_avg", "rolling_30d_avg", "spending_velocity", "days_since_last_txn", "amount_vs_avg_ratio", "merchant_frequency", "category_frequency", "is_weekend"]

@@ -1,0 +1,14 @@
+{
+  "model_name": "cash_exhaustion_regressor",
+  "version": "20260727_092019",
+  "trained_at": "2026-07-27T09:20:19.631435",
+  "feature_count": 11,
+  "metrics": {
+    "mae": 0.0,
+    "mse": 0.0,
+    "rmse": 0.0,
+    "r2": 1.0
+  },
+  "threshold": 1000.0,
+  "target": "days_until_low_balance"
+}

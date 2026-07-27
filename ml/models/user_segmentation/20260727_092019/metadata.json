@@ -1,0 +1,16 @@
+{
+  "model_name": "user_segmentation",
+  "version": "20260727_092019",
+  "trained_at": "2026-07-27T09:20:19.759515",
+  "feature_count": 8,
+  "metrics": {},
+  "algorithm": "KMeans",
+  "n_clusters": 1,
+  "segment_names": {
+    "0": "Conservative Saver",
+    "1": "Balanced Spender",
+    "2": "Heavy Spender",
+    "3": "Frequent Micro-Spender",
+    "4": "Luxury Buyer"
+  }
+}

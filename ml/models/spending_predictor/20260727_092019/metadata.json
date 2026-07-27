@@ -1,0 +1,59 @@
+{
+  "model_name": "spending_predictor",
+  "version": "20260727_092019",
+  "trained_at": "2026-07-27T09:20:19.612887",
+  "feature_count": 23,
+  "metrics": {
+    "mae": 154.2647,
+    "mse": 25774.0605,
+    "rmse": 160.543,
+    "r2": 0.9821
+  },
+  "algorithm": "GradientBoosting",
+  "target": "amount",
+  "training_samples": 10,
+  "all_model_metrics": {
+    "LinearRegression": {
+      "mae": 2827.998,
+      "mse": 8722632.9449,
+      "rmse": 2953.4104,
+      "r2": -5.0574
+    },
+    "Ridge": {
+      "mae": 1599.2759,
+      "mse": 3208045.1421,
+      "rmse": 1791.1017,
+      "r2": -1.2278
+    },
+    "Lasso": {
+      "mae": 953.229,
+      "mse": 1070576.2475,
+      "rmse": 1034.6865,
+      "r2": 0.2565
+    },
+    "DecisionTree": {
+      "mae": 1100.0,
+      "mse": 2020000.0,
+      "rmse": 1421.267,
+      "r2": -0.4028
+    },
+    "RandomForest": {
+      "mae": 490.5,
+      "mse": 268982.5,
+      "rmse": 518.6352,
+      "r2": 0.8132
+    },
+    "GradientBoosting": {
+      "mae": 154.2647,
+      "mse": 25774.0605,
+      "rmse": 160.543,
+      "r2": 0.9821
+    },
+    "XGBoost": {
+      "mae": 584.5562,
+      "mse": 581351.1678,
+      "rmse": 762.4639,
+      "r2": 0.5963
+    }
+  }
+}
