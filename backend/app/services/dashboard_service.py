@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.models.transaction import Transaction
+from app.core.cache import cache_get, cache_set, make_cache_key
 
 
 # ─────────────────────────────────────────────

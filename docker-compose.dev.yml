@@ -1,0 +1,23 @@
+version: "3.9"
+# Development override — starts only infrastructure services
+# Run backend and frontend locally for hot reload
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: spending_db
+      POSTGRES_USER: spending_user
+      POSTGRES_PASSWORD: spending_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_dev_data:

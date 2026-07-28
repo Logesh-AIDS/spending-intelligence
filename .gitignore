@@ -1,0 +1,47 @@
+# ── Secrets & Environment ──────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+*.env
+!.env.example
+!.env.development
+
+# ── Python ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+
+# ── Database ───────────────────────────────────────────────────────────────
+*.db
+*.sqlite3
+*.dump
+
+# ── ML Artifacts ───────────────────────────────────────────────────────────
+ml/models/*/
+ml/data/
+ml/plots/
+ml/reports/
+!ml/models/.gitkeep
+
+# ── Node / Frontend ────────────────────────────────────────────────────────
+node_modules/
+.next/
+frontend/.env.local
+frontend/out/
+
+# ── Docker ─────────────────────────────────────────────────────────────────
+docker/nginx/ssl/
+
+# ── OS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDE ─────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
