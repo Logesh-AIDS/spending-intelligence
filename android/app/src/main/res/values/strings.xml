@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SpendControl</string>
+    <string name="sms_permission_rationale">SMS permission is needed to automatically detect and save your bank transactions.</string>
+</resources>

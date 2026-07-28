@@ -20,7 +20,17 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
+            // ── CHOOSE ONE based on how you are running the app ──────────────
+            //
+            // Option A: Running on Android EMULATOR on this Mac
+            //   10.0.2.2 is the emulator's special address that points to your Mac
+            //buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
+            //
+            // Option B: Running on a REAL Android phone connected to same Wi-Fi
+            //   Your Mac's current IP is 10.161.46.91
+            //   To use real phone: comment out Option A above, uncomment this line:
+             buildConfigField("String", "BASE_URL", "\"http://10.161.46.91:8000/api/v1/\"")
+            //
             buildConfigField("String", "ENV", "\"debug\"")
         }
         release {
