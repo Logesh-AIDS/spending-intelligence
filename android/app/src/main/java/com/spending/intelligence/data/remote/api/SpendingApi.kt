@@ -52,4 +52,14 @@ interface SpendingApi {
     // ── Goals ─────────────────────────────────────────────────────────────────
     @GET("goals")
     suspend fun getGoals(): Response<List<GoalDto>>
+
+    // ── Analytics ─────────────────────────────────────────────────────────────
+    @GET("analytics/categories")
+    suspend fun getCategories(): Response<CategoryAnalyticsDto>
+
+    @GET("analytics/behaviour")
+    suspend fun getBehaviour(): Response<BehaviourDto>
+
+    @GET("analytics/statistics")
+    suspend fun getStatistics(): Response<StatisticsDto>
 }
