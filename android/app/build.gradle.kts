@@ -20,17 +20,13 @@ android {
 
     buildTypes {
         debug {
-            // ── CHOOSE ONE based on how you are running the app ──────────────
-            //
-            // Option A: Running on Android EMULATOR on this Mac
-            //   10.0.2.2 is the emulator's special address that points to your Mac
-            //buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
-            //
-            // Option B: Running on a REAL Android phone connected to same Wi-Fi
-            //   Your Mac's current IP is 10.161.46.91
-            //   To use real phone: comment out Option A above, uncomment this line:
-             buildConfigField("String", "BASE_URL", "\"http://10.161.46.91:8000/api/v1/\"")
-            //
+            // Using REAL PHONE on same WiFi as Mac
+            // Mac's IP on current WiFi: 10.161.46.91
+            buildConfigField("String", "BASE_URL", "\"http://10.161.46.91:8000/api/v1/\"")
+
+            // If switching back to emulator, comment line above and uncomment this:
+            // buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
+
             buildConfigField("String", "ENV", "\"debug\"")
         }
         release {
@@ -56,7 +52,6 @@ android {
 }
 
 dependencies {
-    // Compose BOM — pins all Compose versions together
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)
     implementation(libs.compose.ui)
@@ -66,43 +61,33 @@ dependencies {
     implementation(libs.compose.activity)
     debugImplementation(libs.compose.ui.tooling)
 
-    // Navigation
     implementation(libs.navigation.compose)
     implementation(libs.hilt.navigation.compose)
 
-    // Lifecycle / ViewModel
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
 
-    // Hilt DI
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
-    // Room local DB
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
 
-    // Retrofit + OkHttp
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
 
-    // DataStore for secure prefs
     implementation(libs.datastore.preferences)
 
-    // WorkManager
     implementation(libs.workmanager.ktx)
     implementation(libs.hilt.work)
     ksp(libs.hilt.work.compiler)
 
-    // Coroutines
     implementation(libs.coroutines.android)
 
-    // Security
     implementation(libs.security.crypto)
 
-    // Charts
     implementation(libs.vico.compose)
 }

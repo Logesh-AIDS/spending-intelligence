@@ -89,8 +89,7 @@ class SpendingRepository @Inject constructor(
                         avgDailySpending = d.avgDailySpending,
                         recentTransactions = d.recentTransactions.map { it.toDomain() }
                     )
-                )
-            } else ApiResult.Error("Could not load dashboard", r.code())
+                )            } else ApiResult.Error("Could not load dashboard", r.code())
         } catch (e: Exception) {
             ApiResult.Error("Network error")
         }
@@ -182,12 +181,12 @@ class SpendingRepository @Inject constructor(
 
 private fun TransactionDto.toDomain() = Transaction(
     id, bank, accountNumber, transactionType, amount, date,
-    merchant, upiReference, balance, category, createdAt
+    merchant, upiReference, balance, category, createdAt ?: ""
 )
 
 private fun TransactionDto.toEntity() = TransactionEntity(
     id, bank, accountNumber, transactionType, amount, date,
-    merchant, upiReference, balance, category, createdAt
+    merchant, upiReference, balance, category, createdAt ?: ""
 )
 
 private fun TransactionEntity.toDomain() = Transaction(

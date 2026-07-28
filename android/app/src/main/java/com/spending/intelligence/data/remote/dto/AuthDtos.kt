@@ -29,18 +29,19 @@ data class SmsRequest(
     @SerializedName("raw_sms") val rawSms: String
 )
 
+// All fields that could be null from the backend must be marked nullable here
 data class TransactionDto(
     val id: Int,
     val bank: String,
-    @SerializedName("account_number") val accountNumber: String?,
+    @SerializedName("account_number") val accountNumber: String? = null,
     @SerializedName("transaction_type") val transactionType: String,
     val amount: Double,
     val date: String,
-    val merchant: String?,
-    @SerializedName("upi_reference") val upiReference: String?,
-    val balance: Double?,
-    val category: String,
-    @SerializedName("created_at") val createdAt: String
+    val merchant: String? = null,
+    @SerializedName("upi_reference") val upiReference: String? = null,
+    val balance: Double? = null,
+    val category: String = "Others",
+    @SerializedName("created_at") val createdAt: String? = null
 )
 
 data class PaginatedTransactionsDto(
@@ -52,37 +53,44 @@ data class PaginatedTransactionsDto(
     val transactions: List<TransactionDto>
 )
 
+// All nullable fields marked with ? — backend can return null for any stat
 data class DashboardSummaryDto(
-    @SerializedName("current_balance") val currentBalance: Double?,
-    @SerializedName("total_spending") val totalSpending: Double,
-    @SerializedName("total_income") val totalIncome: Double,
-    @SerializedName("net_cash_flow") val netCashFlow: Double,
-    @SerializedName("savings_percentage") val savingsPercentage: Double,
-    @SerializedName("today_spending") val todaySpending: Double,
-    @SerializedName("this_week_spending") val thisWeekSpending: Double,
-    @SerializedName("this_month_spending") val thisMonthSpending: Double,
-    @SerializedName("total_transactions") val totalTransactions: Int,
-    @SerializedName("average_daily_spending") val avgDailySpending: Double,
-    @SerializedName("recent_transactions") val recentTransactions: List<TransactionDto>
+    @SerializedName("current_balance") val currentBalance: Double? = null,
+    @SerializedName("total_spending") val totalSpending: Double = 0.0,
+    @SerializedName("total_income") val totalIncome: Double = 0.0,
+    @SerializedName("net_cash_flow") val netCashFlow: Double = 0.0,
+    @SerializedName("savings_percentage") val savingsPercentage: Double = 0.0,
+    @SerializedName("today_spending") val todaySpending: Double = 0.0,
+    @SerializedName("this_week_spending") val thisWeekSpending: Double = 0.0,
+    @SerializedName("this_month_spending") val thisMonthSpending: Double = 0.0,
+    @SerializedName("this_year_spending") val thisYearSpending: Double = 0.0,
+    @SerializedName("total_transactions") val totalTransactions: Int = 0,
+    @SerializedName("debit_count") val debitCount: Int = 0,
+    @SerializedName("credit_count") val creditCount: Int = 0,
+    @SerializedName("highest_expense") val highestExpense: Double? = null,
+    @SerializedName("highest_income") val highestIncome: Double? = null,
+    @SerializedName("average_transaction") val averageTransaction: Double? = null,
+    @SerializedName("average_daily_spending") val avgDailySpending: Double = 0.0,
+    @SerializedName("recent_transactions") val recentTransactions: List<TransactionDto> = emptyList()
 )
 
 data class HealthScoreDto(
-    val score: Double,
-    val grade: String,
-    val interpretation: String,
-    @SerializedName("improvement_tips") val improvementTips: List<String>
+    val score: Double = 0.0,
+    val grade: String = "C",
+    val interpretation: String = "",
+    @SerializedName("improvement_tips") val improvementTips: List<String> = emptyList()
 )
 
 data class NotificationDto(
     val id: Int,
     val title: String,
     val message: String,
-    @SerializedName("notification_type") val type: String,
-    val priority: String,
-    @SerializedName("ai_explanation") val aiExplanation: String,
-    @SerializedName("recommended_action") val recommendedAction: String,
-    @SerializedName("is_read") val isRead: Boolean,
-    @SerializedName("created_at") val createdAt: String
+    @SerializedName("notification_type") val type: String = "",
+    val priority: String = "low",
+    @SerializedName("ai_explanation") val aiExplanation: String = "",
+    @SerializedName("recommended_action") val recommendedAction: String = "",
+    @SerializedName("is_read") val isRead: Boolean = false,
+    @SerializedName("created_at") val createdAt: String = ""
 )
 
 data class GoalDto(
@@ -90,10 +98,10 @@ data class GoalDto(
     val title: String,
     @SerializedName("goal_type") val goalType: String,
     @SerializedName("target_amount") val targetAmount: Double,
-    @SerializedName("current_amount") val currentAmount: Double,
-    val category: String?,
-    val deadline: String?,
-    @SerializedName("is_achieved") val isAchieved: Boolean,
-    @SerializedName("progress_percentage") val progressPercentage: Double,
-    @SerializedName("ai_prediction") val aiPrediction: String?
+    @SerializedName("current_amount") val currentAmount: Double = 0.0,
+    val category: String? = null,
+    val deadline: String? = null,
+    @SerializedName("is_achieved") val isAchieved: Boolean = false,
+    @SerializedName("progress_percentage") val progressPercentage: Double = 0.0,
+    @SerializedName("ai_prediction") val aiPrediction: String? = null
 )
