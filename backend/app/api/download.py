@@ -10,8 +10,8 @@ from fastapi.responses import FileResponse
 
 router = APIRouter(tags=["Download"])
 
-# APK is stored in backend/static/
-APK_DIR = Path(__file__).parent.parent.parent / "static"
+# APK stored in backend/static/ — path relative to this file
+APK_DIR = Path(__file__).parent.parent / "static"
 APK_FILENAME = "spendcontrol.apk"
 APK_PATH = APK_DIR / APK_FILENAME
 

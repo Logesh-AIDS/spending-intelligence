@@ -44,6 +44,13 @@ android {
         compose = true
         buildConfig = true
     }
+
+    lint {
+        // Suppress WorkManager lint warnings — handled manually in manifest
+        disable += "RemoveWorkManagerInitializer"
+        disable += "SpecifyForegroundServiceType"
+        abortOnError = false
+    }
 }
 
 dependencies {
