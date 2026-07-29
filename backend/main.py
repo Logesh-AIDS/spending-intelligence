@@ -30,6 +30,7 @@ from app.api.dashboard import router as dashboard_router
 from app.api.analytics import router as analytics_router
 from app.api.ml import router as ml_router
 from app.api.automation import router as automation_router
+from app.api.download import router as download_router
 
 # Setup logging before anything else
 logger = setup_logging()
@@ -102,6 +103,7 @@ app.include_router(dashboard_router)
 app.include_router(analytics_router)
 app.include_router(ml_router)
 app.include_router(automation_router)
+app.include_router(download_router)
 
 
 # ── Health check (used by Docker, Nginx, CI/CD) ───────────────────────────

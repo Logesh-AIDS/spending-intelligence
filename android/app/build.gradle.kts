@@ -20,20 +20,15 @@ android {
 
     buildTypes {
         debug {
-            // Using REAL PHONE on same WiFi as Mac
-            // Mac's IP on current WiFi: 10.161.46.91
-            buildConfigField("String", "BASE_URL", "\"http://10.161.46.91:8000/api/v1/\"")
-
-            // If switching back to emulator, comment line above and uncomment this:
-            // buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
-
+            // Production backend on Railway — works from ANY network
+            buildConfigField("String", "BASE_URL", "\"https://spending-intelligence-production.up.railway.app/api/v1/\"")
             buildConfigField("String", "ENV", "\"debug\"")
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            buildConfigField("String", "BASE_URL", "\"https://your-production-domain.com/api/v1/\"")
+            buildConfigField("String", "BASE_URL", "\"https://spending-intelligence-production.up.railway.app/api/v1/\"")
             buildConfigField("String", "ENV", "\"release\"")
         }
     }

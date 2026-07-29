@@ -5,52 +5,63 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
 import android.util.Log
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.workDataOf
-import com.spending.intelligence.worker.SmsSyncWorker
+import com.spending.intelligence.data.local.dao.PendingSmsDao
+import com.spending.intelligence.data.local.entity.PendingSmsEntity
+import com.spending.intelligence.data.remote.api.SpendingApi
+import com.spending.intelligence.data.remote.dto.SmsRequest
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.spending.intelligence.data.local.dao.PendingSmsDao
-import com.spending.intelligence.data.local.entity.PendingSmsEntity
 
 /**
- * Receives incoming SMS broadcast.
- * Filters for bank transaction messages.
- * Queues them to Room (offline-safe) then triggers WorkManager upload.
+ * Receives incoming SMS instantly.
+ * Calls the backend API directly in a coroutine — no WorkManager delay.
+ * Falls back to local queue if network is unavailable.
  */
 @AndroidEntryPoint
 class SmsReceiver : BroadcastReceiver() {
 
-    @Inject
-    lateinit var pendingSmsDao: PendingSmsDao
+    @Inject lateinit var pendingSmsDao: PendingSmsDao
+    @Inject lateinit var api: SpendingApi
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
 
         val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
-        val scope = CoroutineScope(Dispatchers.IO)
+        val pendingResult = goAsync() // keeps receiver alive during async work
 
-        for (msg in messages) {
-            val sender = msg.originatingAddress ?: continue
-            val body = msg.messageBody ?: continue
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                for (msg in messages) {
+                    val sender = msg.originatingAddress ?: continue
+                    val body = msg.messageBody ?: continue
 
-            val filteredSms = SmsFilter.filter(sender, body) ?: continue
+                    val filteredSms = SmsFilter.filter(sender, body) ?: continue
 
-            Log.d("SmsReceiver", "Bank SMS detected from $sender")
+                    Log.d("SmsReceiver", "Bank SMS detected: ${body.take(50)}")
 
-            scope.launch {
-                // 1. Save to local queue (works offline)
-                val pendingId = pendingSmsDao.insert(PendingSmsEntity(rawSms = filteredSms))
-                Log.d("SmsReceiver", "Queued SMS id=$pendingId")
-
-                // 2. Trigger WorkManager to upload immediately (if online)
-                val uploadWork = OneTimeWorkRequestBuilder<SmsSyncWorker>()
-                    .build()
-                WorkManager.getInstance(context).enqueue(uploadWork)
+                    // Try direct API call first (instant if online)
+                    try {
+                        val response = api.parseSms(SmsRequest(filteredSms))
+                        if (response.isSuccessful) {
+                            Log.d("SmsReceiver", "✅ SMS uploaded instantly")
+                        } else if (response.code() == 422) {
+                            Log.w("SmsReceiver", "SMS format not supported (422)")
+                        } else {
+                            // API failed — save to queue for retry
+                            pendingSmsDao.insert(PendingSmsEntity(rawSms = filteredSms))
+                            Log.w("SmsReceiver", "API returned ${response.code()} — queued for retry")
+                        }
+                    } catch (networkError: Exception) {
+                        // No internet — save to queue, WorkManager will retry
+                        pendingSmsDao.insert(PendingSmsEntity(rawSms = filteredSms))
+                        Log.w("SmsReceiver", "Offline — SMS queued: ${networkError.message}")
+                    }
+                }
+            } finally {
+                pendingResult.finish()
             }
         }
     }

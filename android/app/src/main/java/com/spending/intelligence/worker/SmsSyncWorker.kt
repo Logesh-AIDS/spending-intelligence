@@ -1,7 +1,13 @@
 package com.spending.intelligence.worker
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.*
 import com.spending.intelligence.data.local.dao.PendingSmsDao
@@ -27,6 +33,8 @@ class SmsSyncWorker @AssistedInject constructor(
 
     companion object {
         const val TAG = "SmsSyncWorker"
+        private const val NOTIFICATION_ID = 1001
+        private const val CHANNEL_ID = "sms_sync"
 
         fun buildPeriodicRequest(): PeriodicWorkRequest =
             PeriodicWorkRequestBuilder<SmsSyncWorker>(15, TimeUnit.MINUTES)
@@ -38,6 +46,32 @@ class SmsSyncWorker @AssistedInject constructor(
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .addTag(TAG)
                 .build()
+    }
+
+    // Required for expedited work on Android 12+
+    override suspend fun getForegroundInfo(): ForegroundInfo {
+        val notificationManager =
+            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID, "SMS Sync", NotificationManager.IMPORTANCE_LOW
+            )
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val notification: Notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setContentTitle("SpendControl")
+            .setContentText("Syncing bank transaction...")
+            .setSmallIcon(android.R.drawable.ic_popup_sync)
+            .setOngoing(true)
+            .build()
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            ForegroundInfo(NOTIFICATION_ID, notification)
+        }
     }
 
     override suspend fun doWork(): Result {
