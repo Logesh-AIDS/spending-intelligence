@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.spending.intelligence.domain.model.Transaction
+import com.spending.intelligence.navigation.Screen
+import com.spending.intelligence.presentation.dashboard.BottomNavBar
 import com.spending.intelligence.presentation.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,6 +65,11 @@ fun TransactionsScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            onNavigate?.let {
+                BottomNavBar(currentRoute = Screen.Transactions.route, onNavigate = it)
+            }
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
