@@ -9,15 +9,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class CategoryData(val categories: List<CategoryItem>, val highestCategory: String?)
 data class CategoryItem(val category: String, val totalSpent: Double, val percentage: Double)
-data class BehaviourData(val averageSpending: Double, val medianSpending: Double, val maxSpending: Double,
-                         val weekendSpending: Double, val mostActiveDay: String?, val frequencyPerDay: Double)
-data class StatisticsData(val totalTransactions: Int, val totalDebitAmount: Double, val totalCreditAmount: Double,
-                          val avgDebitAmount: Double, val highestDebit: Double?)
+data class CategoryData(val categories: List<CategoryItem>, val highestCategory: String?)
+data class BehaviourData(
+    val averageSpending: Double, val medianSpending: Double, val maxSpending: Double,
+    val weekendSpending: Double, val weekdaySpending: Double,
+    val mostActiveDay: String?, val frequencyPerDay: Double
+)
+data class StatisticsData(
+    val totalTransactions: Int, val totalDebitAmount: Double, val totalCreditAmount: Double,
+    val avgDebitAmount: Double, val highestDebit: Double?
+)
 
 data class AnalyticsUiState(
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = true,
     val categoryData: CategoryData? = null,
     val behaviour: BehaviourData? = null,
     val statistics: StatisticsData? = null,
@@ -27,39 +32,64 @@ data class AnalyticsUiState(
 @HiltViewModel
 class AnalyticsViewModel @Inject constructor(private val api: SpendingApi) : ViewModel() {
 
-    private val _state = MutableStateFlow(AnalyticsUiState(isLoading = true))
+    private val _state = MutableStateFlow(AnalyticsUiState())
     val state: StateFlow<AnalyticsUiState> = _state
 
     init { load() }
 
-    private fun load() {
+    fun load() {
         viewModelScope.launch {
-            try {
-                val catRes = api.getCategories()
-                val behRes = api.getBehaviour()
-                val statRes = api.getStatistics()
+            _state.value = AnalyticsUiState(isLoading = true)
 
-                val cat = if (catRes.isSuccessful) catRes.body()!!.let { body ->
-                    CategoryData(
-                        categories = body.categories.map { CategoryItem(it.category, it.totalSpent, it.percentage) },
+            // Fetch all 3 independently — partial failure still shows other data
+            var cat: CategoryData? = null
+            var beh: BehaviourData? = null
+            var stat: StatisticsData? = null
+            var errorMsg: String? = null
+
+            try {
+                val r = api.getCategories()
+                if (r.isSuccessful && r.body() != null) {
+                    val body = r.body()!!
+                    cat = CategoryData(
+                        categories = body.categories.map {
+                            CategoryItem(it.category, it.totalSpent, it.percentage)
+                        },
                         highestCategory = body.highestSpendingCategory
                     )
-                } else null
+                }
+            } catch (e: Exception) { errorMsg = e.message }
 
-                val beh = if (behRes.isSuccessful) behRes.body()!!.let { b ->
-                    BehaviourData(b.averageSpending, b.medianSpending, b.maxSpending,
-                        b.weekendSpending, b.mostActiveDay, b.transactionFrequencyPerDay)
-                } else null
+            try {
+                val r = api.getBehaviour()
+                if (r.isSuccessful && r.body() != null) {
+                    val b = r.body()!!
+                    beh = BehaviourData(
+                        b.averageSpending, b.medianSpending, b.maxSpending,
+                        b.weekendSpending, b.weekdaySpending,
+                        b.mostActiveDay, b.transactionFrequencyPerDay
+                    )
+                }
+            } catch (e: Exception) { /* continue */ }
 
-                val stat = if (statRes.isSuccessful) statRes.body()!!.let { s ->
-                    StatisticsData(s.totalTransactions, s.totalDebitAmount, s.totalCreditAmount,
-                        s.averageDebitAmount, s.highestDebit)
-                } else null
+            try {
+                val r = api.getStatistics()
+                if (r.isSuccessful && r.body() != null) {
+                    val s = r.body()!!
+                    stat = StatisticsData(
+                        s.totalTransactions, s.totalDebitAmount, s.totalCreditAmount,
+                        s.averageDebitAmount, s.highestDebit
+                    )
+                }
+            } catch (e: Exception) { /* continue */ }
 
-                _state.value = AnalyticsUiState(categoryData = cat, behaviour = beh, statistics = stat)
-            } catch (e: Exception) {
-                _state.value = AnalyticsUiState(error = "Network error: ${e.message}")
-            }
+            _state.value = AnalyticsUiState(
+                isLoading = false,
+                categoryData = cat,
+                behaviour = beh,
+                statistics = stat,
+                error = if (cat == null && beh == null && stat == null) errorMsg else null
+            )
         }
     }
 }

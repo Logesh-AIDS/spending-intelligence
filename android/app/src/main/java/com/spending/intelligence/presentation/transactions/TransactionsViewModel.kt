@@ -52,9 +52,19 @@ class TransactionsViewModel @Inject constructor(
     fun sync() {
         viewModelScope.launch {
             _isSyncing.value = true
-            val result = repository.syncTransactions()
-            if (result is ApiResult.Error) _error.value = result.message
-            _isSyncing.value = false
+            try {
+                val result = repository.syncTransactions()
+                if (result is ApiResult.Error) {
+                    // Only show error if it's not a network issue during offline use
+                    if (!result.message.contains("Network", ignoreCase = true)) {
+                        _error.value = result.message
+                    }
+                }
+            } catch (e: Exception) {
+                // Silently ignore sync errors — local data still shows
+            } finally {
+                _isSyncing.value = false
+            }
         }
     }
 

@@ -20,6 +20,7 @@ import com.spending.intelligence.domain.model.Goal
 @Composable
 fun BudgetsScreen(
     onBack: () -> Unit,
+    onNavigate: ((String) -> Unit)? = null,
     viewModel: BudgetsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()

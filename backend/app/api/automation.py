@@ -203,21 +203,24 @@ def get_health_score(
     stats = get_dashboard_summary(db, current_user.id)
     score_data = calculate_health_score(stats)
 
-    # Save to DB
-    record = FinancialHealthScore(
-        user_id=current_user.id,
-        score=score_data["score"],
-        grade=score_data["grade"],
-        savings_component=score_data["savings_component"],
-        expense_component=score_data["expense_component"],
-        consistency_component=score_data["consistency_component"],
-        cash_flow_component=score_data["cash_flow_component"],
-        trend_component=score_data["trend_component"],
-        interpretation=score_data["interpretation"],
-        improvement_tips=json.dumps(score_data["improvement_tips"]),
-    )
-    db.add(record)
-    db.commit()
+    # Try to save to DB — silently skip if table doesn't exist yet (migration pending)
+    try:
+        record = FinancialHealthScore(
+            user_id=current_user.id,
+            score=score_data["score"],
+            grade=score_data["grade"],
+            savings_component=score_data["savings_component"],
+            expense_component=score_data["expense_component"],
+            consistency_component=score_data["consistency_component"],
+            cash_flow_component=score_data["cash_flow_component"],
+            trend_component=score_data["trend_component"],
+            interpretation=score_data["interpretation"],
+            improvement_tips=json.dumps(score_data["improvement_tips"]),
+        )
+        db.add(record)
+        db.commit()
+    except Exception:
+        db.rollback()  # table may not exist on fresh deploy — still return score
 
     return {**score_data, "calculated_at": datetime.utcnow().isoformat()}
 

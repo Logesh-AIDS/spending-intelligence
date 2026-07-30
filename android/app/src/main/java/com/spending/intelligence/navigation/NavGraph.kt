@@ -60,15 +60,24 @@ fun SpendingNavGraph(
         }
 
         composable(Screen.Transactions.route) {
-            TransactionsScreen(onBack = { navController.popBackStack() })
+            TransactionsScreen(
+                onBack = { navController.popBackStack() },
+                onNavigate = { navController.navigate(it) }
+            )
         }
 
         composable(Screen.Analytics.route) {
-            AnalyticsScreen(onBack = { navController.popBackStack() })
+            AnalyticsScreen(
+                onBack = { navController.popBackStack() },
+                onNavigate = { navController.navigate(it) }
+            )
         }
 
         composable(Screen.Budgets.route) {
-            BudgetsScreen(onBack = { navController.popBackStack() })
+            BudgetsScreen(
+                onBack = { navController.popBackStack() },
+                onNavigate = { navController.navigate(it) }
+            )
         }
 
         composable(Screen.Notifications.route) {

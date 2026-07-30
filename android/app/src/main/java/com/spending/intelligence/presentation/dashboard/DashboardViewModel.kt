@@ -32,11 +32,14 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = DashboardUiState(isLoading = true)
             val summaryResult = repository.getDashboardSummary()
-            val healthResult = repository.getHealthScore()
+
+            // Health score is optional — don't crash dashboard if it fails
+            val healthResult = try { repository.getHealthScore() } catch (e: Exception) { null }
+
             _state.value = DashboardUiState(
                 isLoading = false,
                 summary = (summaryResult as? ApiResult.Success)?.data,
-                healthScore = (healthResult as? ApiResult.Success)?.data,
+                healthScore = if (healthResult is ApiResult.Success) healthResult.data else null,
                 error = (summaryResult as? ApiResult.Error)?.message
             )
         }
