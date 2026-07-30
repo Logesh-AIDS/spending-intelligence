@@ -87,7 +87,7 @@ class SpendingRepository @Inject constructor(
                         thisMonthSpending = d.thisMonthSpending,
                         totalTransactions = d.totalTransactions,
                         avgDailySpending = d.avgDailySpending,
-                        recentTransactions = d.recentTransactions.map { it.toDomain() }
+                        recentTransactions = d.recentTransactions.map { it.toRecentDomain() }
                     )
                 )            } else ApiResult.Error("Could not load dashboard", r.code())
         } catch (e: Exception) {
@@ -192,4 +192,19 @@ private fun TransactionDto.toEntity() = TransactionEntity(
 private fun TransactionEntity.toDomain() = Transaction(
     id, bank, accountNumber, transactionType, amount, date,
     merchant, upiReference, balance, category, createdAt
+)
+
+// Maps the simplified dashboard recent_transactions shape (missing some fields)
+private fun com.spending.intelligence.data.remote.dto.RecentTransactionDto.toRecentDomain() = Transaction(
+    id = id,
+    bank = bank,
+    accountNumber = accountNumber,
+    transactionType = transactionType,
+    amount = amount,
+    date = date,
+    merchant = merchant,
+    upiReference = upiReference,
+    balance = balance,
+    category = category,
+    createdAt = createdAt ?: ""
 )

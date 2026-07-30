@@ -159,7 +159,7 @@ private fun GoalCard(goal: Goal) {
             }
             Spacer(Modifier.height(6.dp))
             LinearProgressIndicator(
-                progress = { (goal.progressPercentage / 100f).coerceIn(0f, 1f) },
+                progress = { (goal.progressPercentage.toFloat() / 100f).coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
                 color = predictionColor,
                 trackColor = Color(0xFFEEF1FB)

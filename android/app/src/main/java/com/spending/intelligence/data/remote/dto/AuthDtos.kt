@@ -2,10 +2,7 @@ package com.spending.intelligence.data.remote.dto
 
 import com.google.gson.annotations.SerializedName
 
-data class LoginRequest(
-    val email: String,
-    val password: String
-)
+data class LoginRequest(val email: String, val password: String)
 
 data class RegisterRequest(
     val email: String,
@@ -25,22 +22,36 @@ data class UserDto(
     @SerializedName("is_active") val isActive: Boolean
 )
 
-data class SmsRequest(
-    @SerializedName("raw_sms") val rawSms: String
-)
+data class SmsRequest(@SerializedName("raw_sms") val rawSms: String)
 
-// All fields that could be null from the backend must be marked nullable here
+// Full transaction from /transactions/ endpoint — all fields present
 data class TransactionDto(
-    val id: Int,
-    val bank: String,
+    val id: Int = 0,
+    val bank: String = "",
     @SerializedName("account_number") val accountNumber: String? = null,
-    @SerializedName("transaction_type") val transactionType: String,
-    val amount: Double,
-    val date: String,
+    @SerializedName("transaction_type") val transactionType: String = "",
+    val amount: Double = 0.0,
+    val date: String = "",
     val merchant: String? = null,
     @SerializedName("upi_reference") val upiReference: String? = null,
     val balance: Double? = null,
     val category: String = "Others",
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
+// Simplified transaction from dashboard /summary — fewer fields
+data class RecentTransactionDto(
+    val id: Int = 0,
+    val bank: String = "",
+    @SerializedName("transaction_type") val transactionType: String = "",
+    val amount: Double = 0.0,
+    val date: String = "",
+    val merchant: String? = null,
+    val category: String = "Others",
+    // Optional fields that may or may not be present
+    @SerializedName("account_number") val accountNumber: String? = null,
+    @SerializedName("upi_reference") val upiReference: String? = null,
+    val balance: Double? = null,
     @SerializedName("created_at") val createdAt: String? = null
 )
 
@@ -53,7 +64,7 @@ data class PaginatedTransactionsDto(
     val transactions: List<TransactionDto>
 )
 
-// All nullable fields marked with ? — backend can return null for any stat
+// Every field has a default value so Gson NEVER throws on missing/null fields
 data class DashboardSummaryDto(
     @SerializedName("current_balance") val currentBalance: Double? = null,
     @SerializedName("total_spending") val totalSpending: Double = 0.0,
@@ -71,7 +82,8 @@ data class DashboardSummaryDto(
     @SerializedName("highest_income") val highestIncome: Double? = null,
     @SerializedName("average_transaction") val averageTransaction: Double? = null,
     @SerializedName("average_daily_spending") val avgDailySpending: Double = 0.0,
-    @SerializedName("recent_transactions") val recentTransactions: List<TransactionDto> = emptyList()
+    // Use RecentTransactionDto which handles both full and minimal response shapes
+    @SerializedName("recent_transactions") val recentTransactions: List<RecentTransactionDto> = emptyList()
 )
 
 data class HealthScoreDto(
@@ -82,9 +94,9 @@ data class HealthScoreDto(
 )
 
 data class NotificationDto(
-    val id: Int,
-    val title: String,
-    val message: String,
+    val id: Int = 0,
+    val title: String = "",
+    val message: String = "",
     @SerializedName("notification_type") val type: String = "",
     val priority: String = "low",
     @SerializedName("ai_explanation") val aiExplanation: String = "",
@@ -94,10 +106,10 @@ data class NotificationDto(
 )
 
 data class GoalDto(
-    val id: Int,
-    val title: String,
-    @SerializedName("goal_type") val goalType: String,
-    @SerializedName("target_amount") val targetAmount: Double,
+    val id: Int = 0,
+    val title: String = "",
+    @SerializedName("goal_type") val goalType: String = "",
+    @SerializedName("target_amount") val targetAmount: Double = 0.0,
     @SerializedName("current_amount") val currentAmount: Double = 0.0,
     val category: String? = null,
     val deadline: String? = null,
