@@ -32,7 +32,7 @@ def receive_sms(
             detail="Could not extract transaction type or amount from SMS"
         )
 
-    # Deduplication: if same UPI reference already exists for this user, skip
+    # ── Deduplication: check by UPI reference first (most unique) ──────────
     upi_ref = transaction.get("upi_reference")
     if upi_ref:
         existing = db.query(Transaction).filter(
@@ -49,10 +49,38 @@ def receive_sms(
                     "transaction_type": existing.transaction_type,
                     "merchant": existing.merchant,
                     "date": existing.date,
+                    "category": existing.category,
                 }
             }
 
-    # AI category assignment
+    # ── Fallback dedup: same date + amount + merchant (no UPI ref) ──────────
+    date = transaction.get("date", "")
+    amount = transaction.get("amount")
+    merchant = transaction.get("merchant")
+
+    if date and amount and merchant:
+        existing = db.query(Transaction).filter(
+            Transaction.user_id == current_user.id,
+            Transaction.date == date,
+            Transaction.amount == amount,
+            Transaction.merchant == merchant,
+            Transaction.transaction_type == transaction["transaction_type"]
+        ).first()
+        if existing:
+            return {
+                "message": "Transaction already exists",
+                "transaction": {
+                    "id": existing.id,
+                    "bank": existing.bank,
+                    "amount": existing.amount,
+                    "transaction_type": existing.transaction_type,
+                    "merchant": existing.merchant,
+                    "date": existing.date,
+                    "category": existing.category,
+                }
+            }
+
+    # ── AI category assignment ────────────────────────────────────────────────
     ai_category = categorize(
         merchant=transaction.get("merchant", ""),
         transaction_type=transaction.get("transaction_type", "Debit")
@@ -64,9 +92,9 @@ def receive_sms(
         account_number=transaction.get("account_number"),
         transaction_type=transaction["transaction_type"],
         amount=transaction["amount"],
-        date=transaction.get("date", ""),
+        date=date,
         merchant=transaction.get("merchant"),
-        upi_reference=transaction.get("upi_reference"),
+        upi_reference=upi_ref,
         balance=transaction.get("balance"),
         category=ai_category,
     )

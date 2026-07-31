@@ -94,6 +94,8 @@ class SpendingRepository @Inject constructor(
     suspend fun logout() {
         tokenHolder.token = null
         tokenDataStore.clearAll()
+        // Clear Room cache
+        transactionDao.deleteAll()
     }
 
     val savedToken: Flow<String?> = tokenDataStore.token

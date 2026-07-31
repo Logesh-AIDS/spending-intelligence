@@ -19,7 +19,11 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
 
-private const val PREFS_NAME = "sms_uploaded_ids"
+private const val TAG = "SmsSyncWorker"
+
+// SharedPreferences key — stores set of Android SMS IDs already uploaded
+private const val PREFS_UPLOADED = "sms_uploaded_ids"
+private const val KEY_IDS = "uploaded_sms_ids"
 
 @HiltWorker
 class SmsSyncWorker @AssistedInject constructor(
@@ -32,7 +36,7 @@ class SmsSyncWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, workerParams) {
 
     companion object {
-        const val TAG = "SmsSyncWorker"
+        const val TAG_PERIODIC = "SmsSyncWorker"
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "sms_sync"
 
@@ -44,24 +48,28 @@ class SmsSyncWorker @AssistedInject constructor(
                         .build()
                 )
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-                .addTag(TAG)
+                .addTag(TAG_PERIODIC)
                 .build()
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(NotificationChannel(CHANNEL_ID, "SMS Sync", NotificationManager.IMPORTANCE_LOW))
+            nm.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID, "SMS Sync", NotificationManager.IMPORTANCE_LOW)
+            )
         }
         val notification: Notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setContentTitle("SpendControl")
-            .setContentText("Scanning bank messages...")
+            .setContentText("Syncing transactions...")
             .setSmallIcon(android.R.drawable.ic_popup_sync)
             .setOngoing(true)
             .build()
+
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
             ForegroundInfo(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        else ForegroundInfo(NOTIFICATION_ID, notification)
+        else
+            ForegroundInfo(NOTIFICATION_ID, notification)
     }
 
     override suspend fun doWork(): Result {
@@ -71,22 +79,21 @@ class SmsSyncWorker @AssistedInject constructor(
             return Result.success()
         }
 
-        // SharedPrefs stores SMS IDs that have already been uploaded — prevents duplicates
-        val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val uploadedIds = prefs.getStringSet("uploaded_sms_ids", mutableSetOf())!!.toMutableSet()
+        val prefs = applicationContext.getSharedPreferences(PREFS_UPLOADED, Context.MODE_PRIVATE)
 
-        var uploadedCount = 0
+        // Thread-safe read of uploaded IDs
+        val uploadedIds = prefs.getStringSet(KEY_IDS, emptySet())!!.toMutableSet()
+        var newUploaded = 0
 
-        // Step 1: Upload queued SMS (from broadcast receiver)
+        // ── Step 1: Flush any queued SMS from broadcast receiver ──────────────
         pendingSmsDao.deleteExhausted()
-        val pending = pendingSmsDao.getPending()
-        for (sms in pending) {
+        for (sms in pendingSmsDao.getPending()) {
             try {
-                val response = api.parseSms(SmsRequest(sms.rawSms))
+                val r = api.parseSms(SmsRequest(sms.rawSms))
                 when {
-                    response.isSuccessful || response.code() == 422 -> {
+                    r.isSuccessful || r.code() == 422 -> {
                         pendingSmsDao.deleteById(sms.id)
-                        if (response.isSuccessful) uploadedCount++
+                        if (r.isSuccessful) newUploaded++
                     }
                     else -> pendingSmsDao.incrementRetry(sms.id)
                 }
@@ -95,42 +102,49 @@ class SmsSyncWorker @AssistedInject constructor(
             }
         }
 
-        // Step 2: Scan inbox for ALL bank messages not yet uploaded
+        // ── Step 2: Scan current month's inbox ────────────────────────────────
         try {
-            val bankMessages = smsReader.readBankSms(daysBack = 90) // scan 90 days back
-            Log.d(TAG, "Found ${bankMessages.size} bank messages, ${uploadedIds.size} already uploaded")
+            val bankMessages = smsReader.readCurrentMonthBankSms()
+            Log.d(TAG, "Current month: ${bankMessages.size} bank SMS, ${uploadedIds.size} already uploaded")
 
-            val newMessages = bankMessages.filter { !uploadedIds.contains(it.id) }
-            Log.d(TAG, "New messages to upload: ${newMessages.size}")
+            val toUpload = bankMessages.filter { !uploadedIds.contains(it.id) }
+            Log.d(TAG, "New to upload: ${toUpload.size}")
 
-            for (msg in newMessages) {
+            for (msg in toUpload) {
                 try {
-                    val response = api.parseSms(SmsRequest(msg.body))
-                    if (response.isSuccessful) {
-                        // Mark as uploaded so it's never sent again
-                        uploadedIds.add(msg.id)
-                        uploadedCount++
-                        Log.d(TAG, "✅ Uploaded SMS id=${msg.id}")
-                    } else if (response.code() == 422) {
-                        // Unsupported format — mark as seen so we don't retry endlessly
-                        uploadedIds.add(msg.id)
-                        Log.d(TAG, "Skipped unsupported SMS id=${msg.id}")
+                    val r = api.parseSms(SmsRequest(msg.body))
+                    when {
+                        r.isSuccessful -> {
+                            uploadedIds.add(msg.id)
+                            newUploaded++
+                            Log.d(TAG, "✅ Uploaded sms id=${msg.id}")
+                        }
+                        r.code() == 422 -> {
+                            // Unsupported format — mark seen so we don't retry
+                            uploadedIds.add(msg.id)
+                            Log.d(TAG, "Format not supported id=${msg.id}")
+                        }
+                        // Network/server error — don't mark as uploaded, retry next time
+                        else -> Log.w(TAG, "Upload failed (${r.code()}) for id=${msg.id}")
                     }
-                    // Network errors: don't add to uploadedIds — will retry next sync
                 } catch (e: Exception) {
-                    Log.w(TAG, "Upload failed for SMS id=${msg.id}: ${e.message}")
+                    Log.w(TAG, "Network error for id=${msg.id}: ${e.message}")
+                    // Don't mark as uploaded — will retry
                 }
             }
 
-            // Persist updated set (keep only last 1000 to avoid unbounded growth)
-            val trimmed = if (uploadedIds.size > 1000) uploadedIds.drop(uploadedIds.size - 1000).toSet() else uploadedIds
-            prefs.edit().putStringSet("uploaded_sms_ids", trimmed).apply()
+            // Persist uploaded IDs (keep max 2000 to avoid unbounded growth)
+            val toSave = if (uploadedIds.size > 2000) {
+                uploadedIds.toList().takeLast(2000).toSet()
+            } else uploadedIds
+
+            prefs.edit().putStringSet(KEY_IDS, toSave).apply()
 
         } catch (e: Exception) {
-            Log.e(TAG, "Inbox scan failed: ${e.message}")
+            Log.e(TAG, "Inbox scan error: ${e.message}")
         }
 
-        Log.d(TAG, "Sync done: $uploadedCount new transactions")
+        Log.d(TAG, "Sync complete: $newUploaded new transactions")
         return Result.success()
     }
 }

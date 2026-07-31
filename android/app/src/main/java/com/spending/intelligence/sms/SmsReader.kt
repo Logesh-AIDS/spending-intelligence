@@ -5,20 +5,17 @@ import android.database.Cursor
 import android.net.Uri
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
 
 data class SmsMessage(
-    val id: String,
+    val id: String,              // Android SMS database ID — truly unique per message
     val sender: String,
     val body: String,
-    val timestamp: Long
+    val timestamp: Long          // milliseconds since epoch
 )
 
-/**
- * Reads SMS directly from the device inbox.
- * More reliable than broadcast receiver on restricted devices (Xiaomi, Samsung, etc.)
- */
 @Singleton
 class SmsReader @Inject constructor(
     @ApplicationContext private val context: Context
@@ -26,41 +23,55 @@ class SmsReader @Inject constructor(
     private val TAG = "SmsReader"
 
     /**
-     * Read all bank SMS from inbox, from last N days.
-     * Returns list of (sender, body) pairs that pass the filter.
+     * Read bank SMS from the current month only.
+     * Returns only messages that pass the bank SMS filter.
      */
-    fun readBankSms(daysBack: Int = 90): List<SmsMessage> {
+    fun readCurrentMonthBankSms(): List<SmsMessage> {
+        // Start of current month at midnight
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val monthStartMs = cal.timeInMillis
+
+        return readBankSmsFrom(monthStartMs)
+    }
+
+    /**
+     * Read bank SMS from a specific timestamp onwards.
+     */
+    fun readBankSmsFrom(fromTimestampMs: Long): List<SmsMessage> {
         val results = mutableListOf<SmsMessage>()
 
         try {
             val uri = Uri.parse("content://sms/inbox")
-            val cutoffMs = System.currentTimeMillis() - (daysBack.toLong() * 24 * 60 * 60 * 1000)
-
             val cursor: Cursor? = context.contentResolver.query(
                 uri,
                 arrayOf("_id", "address", "body", "date"),
-                "date > ?",
-                arrayOf(cutoffMs.toString()),
-                "date DESC"
+                "date >= ?",
+                arrayOf(fromTimestampMs.toString()),
+                "date DESC"   // newest first
             )
 
             cursor?.use { c ->
-                Log.d(TAG, "Total SMS in inbox: ${c.count}")
+                Log.d(TAG, "SMS in inbox from cutoff: ${c.count}")
                 while (c.moveToNext()) {
                     val id = c.getString(c.getColumnIndexOrThrow("_id")) ?: continue
                     val sender = c.getString(c.getColumnIndexOrThrow("address")) ?: continue
                     val body = c.getString(c.getColumnIndexOrThrow("body")) ?: continue
-                    val date = c.getLong(c.getColumnIndexOrThrow("date"))
+                    val timestamp = c.getLong(c.getColumnIndexOrThrow("date"))
 
                     val filtered = SmsFilter.filter(sender, body)
                     if (filtered != null) {
-                        results.add(SmsMessage(id, sender, filtered, date))
-                        Log.d(TAG, "Found bank SMS from $sender: ${body.take(50)}")
+                        results.add(SmsMessage(id, sender, filtered, timestamp))
                     }
                 }
             }
 
-            Log.d(TAG, "Found ${results.size} bank SMS messages")
+            Log.d(TAG, "Found ${results.size} bank SMS this month")
         } catch (e: Exception) {
             Log.e(TAG, "Error reading SMS inbox: ${e.message}", e)
         }

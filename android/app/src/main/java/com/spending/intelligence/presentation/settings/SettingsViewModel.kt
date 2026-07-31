@@ -1,6 +1,7 @@
 package com.spending.intelligence.presentation.settings
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.spending.intelligence.data.local.TokenDataStore
 import com.spending.intelligence.data.local.dao.PendingSmsDao
@@ -19,10 +20,11 @@ data class SettingsUiState(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    application: Application,
     private val repository: SpendingRepository,
     private val tokenDataStore: TokenDataStore,
     private val pendingSmsDao: PendingSmsDao
-) : ViewModel() {
+) : AndroidViewModel(application) {
 
     val state: StateFlow<SettingsUiState> = combine(
         tokenDataStore.userName,
@@ -38,7 +40,12 @@ class SettingsViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.Lazily, SettingsUiState())
 
     fun logout() {
-        viewModelScope.launch { repository.logout() }
+        viewModelScope.launch {
+            repository.logout()
+            // Clear the uploaded SMS IDs so fresh account starts clean
+            getApplication<Application>().getSharedPreferences("sms_uploaded_ids", android.content.Context.MODE_PRIVATE)
+                .edit().clear().apply()
+        }
     }
 
     fun setSmsPermissionStatus(granted: Boolean) {
