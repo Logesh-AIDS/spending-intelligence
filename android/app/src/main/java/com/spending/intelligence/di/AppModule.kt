@@ -35,7 +35,6 @@ object AppModule {
 
     @Provides fun provideTransactionDao(db: SpendingDatabase): TransactionDao = db.transactionDao()
     @Provides fun providePendingSmsDao(db: SpendingDatabase): PendingSmsDao = db.pendingSmsDao()
-
     @Provides
     @Singleton
     fun provideOkHttpClient(tokenHolder: TokenHolder): OkHttpClient {

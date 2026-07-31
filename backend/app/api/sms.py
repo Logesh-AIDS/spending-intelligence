@@ -32,6 +32,26 @@ def receive_sms(
             detail="Could not extract transaction type or amount from SMS"
         )
 
+    # Deduplication: if same UPI reference already exists for this user, skip
+    upi_ref = transaction.get("upi_reference")
+    if upi_ref:
+        existing = db.query(Transaction).filter(
+            Transaction.user_id == current_user.id,
+            Transaction.upi_reference == upi_ref
+        ).first()
+        if existing:
+            return {
+                "message": "Transaction already exists",
+                "transaction": {
+                    "id": existing.id,
+                    "bank": existing.bank,
+                    "amount": existing.amount,
+                    "transaction_type": existing.transaction_type,
+                    "merchant": existing.merchant,
+                    "date": existing.date,
+                }
+            }
+
     db_transaction = Transaction(
         user_id=current_user.id,
         bank=transaction["bank"],

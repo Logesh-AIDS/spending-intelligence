@@ -75,22 +75,18 @@ class SmsReceiver : BroadcastReceiver() {
                             val response = api.parseSms(SmsRequest(filteredBody))
                             when {
                                 response.isSuccessful -> {
-                                    // Remove from queue — successfully uploaded
                                     pendingSmsDao.deleteById(queueId)
                                     Log.d(TAG, "✅ SMS uploaded instantly, removed from queue")
                                 }
                                 response.code() == 422 -> {
-                                    // SMS format not supported by backend parser — remove from queue
                                     pendingSmsDao.deleteById(queueId)
                                     Log.w(TAG, "SMS format not supported (422) — removed from queue")
                                 }
                                 else -> {
-                                    // Server error — keep in queue for retry
                                     Log.w(TAG, "Upload failed (${response.code()}) — will retry from queue")
                                 }
                             }
                         } catch (networkError: Exception) {
-                            // No network — stays in queue, WorkManager will retry
                             Log.w(TAG, "Network error — SMS stays in queue: ${networkError.message}")
                         }
                     } else {

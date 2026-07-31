@@ -28,8 +28,7 @@ class DashboardViewModel @Inject constructor(
 
     init { load() }
 
-    fun load() {
-        viewModelScope.launch {
+    fun load() {        viewModelScope.launch {
             _state.value = DashboardUiState(isLoading = true)
             try {
                 Log.d("Dashboard", "Fetching dashboard summary...")

@@ -5,6 +5,7 @@
     <!-- SMS permissions — required for automatic bank SMS detection -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
 
     <!-- Network -->
     <uses-permission android:name="android.permission.INTERNET" />

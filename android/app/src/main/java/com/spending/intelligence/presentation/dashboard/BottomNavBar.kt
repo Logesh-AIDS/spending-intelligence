@@ -1,6 +1,9 @@
 package com.spending.intelligence.presentation.dashboard
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -8,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -28,53 +32,81 @@ val navItems = listOf(
 
 @Composable
 fun BottomNavBar(currentRoute: String, onNavigate: (String) -> Unit) {
-    // Shadow on top edge replaces the harsh divider line
-    Surface(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .shadow(
-                elevation = 16.dp,
-                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                clip = false
-            ),
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-        color = Color.White,
-        tonalElevation = 0.dp
+                elevation = 20.dp,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                clip = true,
+                ambientColor = Color(0x30000000),
+                spotColor = Color(0x20000000)
+            )
+            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .background(Color.White)
+            .padding(horizontal = 8.dp, vertical = 8.dp)
     ) {
-        NavigationBar(
-            containerColor = Color.Transparent,
-            contentColor = PrimaryBlue,
-            modifier = Modifier.height(68.dp),
-            tonalElevation = 0.dp
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             navItems.forEach { item ->
                 val selected = currentRoute == item.route
-                NavigationBarItem(
+                NavBarItem(
+                    item = item,
                     selected = selected,
-                    onClick = { if (currentRoute != item.route) onNavigate(item.route) },
-                    icon = {
-                        Icon(
-                            item.icon,
-                            contentDescription = item.label,
-                            modifier = Modifier.size(if (selected) 24.dp else 22.dp)
-                        )
-                    },
-                    label = {
-                        Text(
-                            item.label,
-                            fontSize = 10.sp,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-                        )
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = PrimaryBlue,
-                        selectedTextColor = PrimaryBlue,
-                        unselectedIconColor = Color(0xFFB0BAD3),
-                        unselectedTextColor = Color(0xFFB0BAD3),
-                        indicatorColor = Color(0xFFE8EEFF)
-                    )
+                    onClick = { if (!selected) onNavigate(item.route) }
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun NavBarItem(item: NavItem, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(if (selected) 44.dp else 40.dp)
+                .clip(CircleShape)
+                .background(
+                    if (selected) PrimaryBlue.copy(alpha = 0.12f)
+                    else Color.Transparent
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = item.icon,
+                contentDescription = item.label,
+                tint = if (selected) PrimaryBlue else Color(0xFFB0BAD3),
+                modifier = Modifier.size(if (selected) 24.dp else 22.dp)
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = item.label,
+            fontSize = 10.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            color = if (selected) PrimaryBlue else Color(0xFFB0BAD3)
+        )
+        // Active dot indicator
+        if (selected) {
+            Spacer(Modifier.height(2.dp))
+            Box(
+                modifier = Modifier
+                    .size(4.dp)
+                    .clip(CircleShape)
+                    .background(PrimaryBlue)
+            )
+        } else {
+            Spacer(Modifier.height(6.dp))
         }
     }
 }
