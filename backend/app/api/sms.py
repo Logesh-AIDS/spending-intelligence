@@ -20,28 +20,28 @@ def receive_sms(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Parse a raw bank SMS and save the transaction.
-    Transaction is linked to the authenticated user.
-    """
     try:
         transaction = parse_sms(request.raw_sms)
     except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+
+    # Reject if critical fields are missing
+    if not transaction.get("transaction_type") or not transaction.get("amount"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
+            detail="Could not extract transaction type or amount from SMS"
         )
 
     db_transaction = Transaction(
         user_id=current_user.id,
         bank=transaction["bank"],
-        account_number=transaction["account_number"],
+        account_number=transaction.get("account_number"),
         transaction_type=transaction["transaction_type"],
         amount=transaction["amount"],
-        date=transaction["date"],
-        merchant=transaction["merchant"],
-        upi_reference=transaction["upi_reference"],
-        balance=transaction["balance"],
+        date=transaction.get("date", ""),
+        merchant=transaction.get("merchant"),
+        upi_reference=transaction.get("upi_reference"),
+        balance=transaction.get("balance"),
         category="Others",
     )
 
