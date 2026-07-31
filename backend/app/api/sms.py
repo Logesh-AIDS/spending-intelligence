@@ -7,6 +7,7 @@ from app.database.database import get_db
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.core.dependencies import get_current_user
+from app.services.category_service import categorize
 
 router = APIRouter(
     prefix="/api/v1/sms",
@@ -25,7 +26,6 @@ def receive_sms(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
-    # Reject if critical fields are missing
     if not transaction.get("transaction_type") or not transaction.get("amount"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -52,6 +52,12 @@ def receive_sms(
                 }
             }
 
+    # AI category assignment
+    ai_category = categorize(
+        merchant=transaction.get("merchant", ""),
+        transaction_type=transaction.get("transaction_type", "Debit")
+    )
+
     db_transaction = Transaction(
         user_id=current_user.id,
         bank=transaction["bank"],
@@ -62,7 +68,7 @@ def receive_sms(
         merchant=transaction.get("merchant"),
         upi_reference=transaction.get("upi_reference"),
         balance=transaction.get("balance"),
-        category="Others",
+        category=ai_category,
     )
 
     db.add(db_transaction)
@@ -78,5 +84,6 @@ def receive_sms(
             "transaction_type": db_transaction.transaction_type,
             "merchant": db_transaction.merchant,
             "date": db_transaction.date,
+            "category": db_transaction.category,
         }
     }
