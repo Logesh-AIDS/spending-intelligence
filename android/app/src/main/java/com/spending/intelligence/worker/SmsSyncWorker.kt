@@ -19,7 +19,6 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
 
-private const val TAG = "SmsSyncWorker"
 private const val PREFS_NAME = "sms_uploaded_ids"
 
 @HiltWorker
@@ -33,18 +32,19 @@ class SmsSyncWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, workerParams) {
 
     companion object {
-        const val TAG_PERIODIC = "SmsSyncWorker"
+        const val TAG = "SmsSyncWorker"
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "sms_sync"
 
         fun buildPeriodicRequest(): PeriodicWorkRequest =
             PeriodicWorkRequestBuilder<SmsSyncWorker>(15, TimeUnit.MINUTES)
+                .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
                         .build()
                 )
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-                .addTag(TAG_PERIODIC)
+                .addTag(TAG)
                 .build()
     }
 
@@ -123,7 +123,7 @@ class SmsSyncWorker @AssistedInject constructor(
             }
 
             // Persist updated set (keep only last 1000 to avoid unbounded growth)
-            val trimmed = if (uploadedIds.size > 1000) uploadedIds.takeLast(1000).toSet() else uploadedIds
+            val trimmed = if (uploadedIds.size > 1000) uploadedIds.drop(uploadedIds.size - 1000).toSet() else uploadedIds
             prefs.edit().putStringSet("uploaded_sms_ids", trimmed).apply()
 
         } catch (e: Exception) {

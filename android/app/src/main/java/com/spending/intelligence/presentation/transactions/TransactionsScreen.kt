@@ -23,6 +23,8 @@ import com.spending.intelligence.domain.model.Transaction
 import com.spending.intelligence.navigation.Screen
 import com.spending.intelligence.presentation.dashboard.BottomNavBar
 import com.spending.intelligence.presentation.theme.*
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,8 +58,10 @@ fun TransactionsScreen(
                 },
                 actions = {
                     if (state.isSyncing) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp).padding(end = 12.dp),
-                            strokeWidth = 2.dp, color = PrimaryBlue)
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp).padding(end = 12.dp),
+                            strokeWidth = 2.dp, color = PrimaryBlue
+                        )
                     } else {
                         IconButton(onClick = { viewModel.sync() }) {
                             Icon(Icons.Default.Sync, null, tint = PrimaryBlue)
@@ -77,7 +81,7 @@ fun TransactionsScreen(
             // Search bar
             OutlinedTextField(
                 value = search, onValueChange = { viewModel.setSearch(it) },
-                placeholder = { Text("Search merchant, bank, category...") },
+                placeholder = { Text("Search merchant, category...") },
                 leadingIcon = { Icon(Icons.Default.Search, null, tint = Color(0xFF6B7DB3)) },
                 trailingIcon = {
                     if (search.isNotBlank()) IconButton(onClick = { viewModel.setSearch("") }) {
@@ -88,38 +92,51 @@ fun TransactionsScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PrimaryBlue, unfocusedBorderColor = Color(0xFFD0D8F0),
-                    focusedContainerColor = Color.White, unfocusedContainerColor = Color.White
+                    focusedBorderColor = PrimaryBlue,
+                    unfocusedBorderColor = Color(0xFFD0D8F0),
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White
                 )
             )
 
             // Filter chips
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(filterType == null, { filterType = null }, label = { Text("All") })
-                FilterChip(filterType == "Debit", { filterType = if (filterType == "Debit") null else "Debit" },
-                    label = { Text("Debits") }, colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = CardRed, selectedLabelColor = AccentRed))
-                FilterChip(filterType == "Credit", { filterType = if (filterType == "Credit") null else "Credit" },
-                    label = { Text("Credits") }, colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = CardGreen, selectedLabelColor = AccentGreen))
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            state.error?.let { err ->
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                        .clip(RoundedCornerShape(10.dp)).background(CardRed).padding(12.dp)
-                ) {
-                    Icon(Icons.Default.Warning, null, tint = AccentRed, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(err, color = AccentRed, fontSize = 13.sp)
+            Row(
+                Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(null to "All", "Debit" to "Debits", "Credit" to "Credits").forEach { (type, label) ->
+                    val selected = filterType == type
+                    FilterChip(
+                        selected = selected,
+                        onClick = { filterType = if (filterType == type) null else type },
+                        label = { Text(label, fontSize = 12.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = when (type) {
+                                "Debit" -> CardRed
+                                "Credit" -> CardGreen
+                                else -> CardBlue
+                            },
+                            selectedLabelColor = when (type) {
+                                "Debit" -> AccentRed
+                                "Credit" -> AccentGreen
+                                else -> PrimaryBlue
+                            }
+                        )
+                    )
                 }
             }
 
-            val filtered = if (filterType != null)
-                state.transactions.filter { it.transactionType == filterType }
-            else state.transactions
+            val filtered = when (filterType) {
+                "Debit" -> state.transactions.filter { it.isDebit }
+                "Credit" -> state.transactions.filter { it.isCredit }
+                else -> state.transactions
+            }.let { list ->
+                if (search.isNotBlank()) list.filter {
+                    it.merchant?.contains(search, ignoreCase = true) == true ||
+                    it.category.contains(search, ignoreCase = true) ||
+                    it.bank.contains(search, ignoreCase = true)
+                } else list
+            }
 
             if (filtered.isEmpty()) {
                 Box(Modifier.fillMaxSize(), Alignment.Center) {
@@ -128,14 +145,47 @@ fun TransactionsScreen(
                         Spacer(Modifier.height(12.dp))
                         Text("No transactions found", fontWeight = FontWeight.SemiBold,
                             fontSize = 16.sp, color = Color(0xFF0D1B4B))
-                        Text("Bank SMS are auto-detected", fontSize = 13.sp, color = Color(0xFF6B7DB3))
                     }
                 }
             } else {
-                LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(filtered, key = { it.id }) { txn ->
-                        TransactionCard(txn, onDelete = { deleteTarget = txn.id })
+                // Group by month
+                val grouped = filtered.groupBy { getMonthLabel(it.date) }
+                val sortedMonths = grouped.keys.sortedByDescending { parseMonthForSort(it) }
+
+                LazyColumn(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    sortedMonths.forEach { month ->
+                        val monthTxns = grouped[month] ?: emptyList()
+                        val monthTotal = monthTxns.filter { it.isDebit }.sumOf { it.amount }
+                        val monthIncome = monthTxns.filter { it.isCredit }.sumOf { it.amount }
+
+                        // Month header
+                        item(key = "header_$month") {
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(month, fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                                    color = Color(0xFF0D1B4B))
+                                Column(horizontalAlignment = Alignment.End) {
+                                    if (monthIncome > 0) Text("+₹${monthIncome.toLong()}",
+                                        fontSize = 12.sp, color = AccentGreen, fontWeight = FontWeight.SemiBold)
+                                    Text("-₹${monthTotal.toLong()}", fontSize = 12.sp,
+                                        color = AccentRed, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                            Spacer(Modifier.height(6.dp))
+                        }
+
+                        // Transactions for this month
+                        items(monthTxns, key = { it.id }) { txn ->
+                            TransactionCard(txn, onDelete = { deleteTarget = txn.id })
+                            Spacer(Modifier.height(4.dp))
+                        }
                     }
                 }
             }
@@ -147,13 +197,18 @@ fun TransactionsScreen(
             onDismissRequest = { deleteTarget = null },
             containerColor = Color.White,
             shape = RoundedCornerShape(20.dp),
-            icon = { Icon(Icons.Default.DeleteForever, null, tint = AccentRed, modifier = Modifier.size(32.dp)) },
+            icon = {
+                Icon(Icons.Default.DeleteForever, null, tint = AccentRed,
+                    modifier = Modifier.size(32.dp))
+            },
             title = { Text("Delete Transaction", fontWeight = FontWeight.Bold) },
-            text = { Text("This action cannot be undone.", color = Color(0xFF6B7DB3)) },
+            text = { Text("This cannot be undone.", color = Color(0xFF6B7DB3)) },
             confirmButton = {
-                Button(onClick = { viewModel.delete(id); deleteTarget = null },
+                Button(
+                    onClick = { viewModel.delete(id); deleteTarget = null },
                     colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
-                    shape = RoundedCornerShape(10.dp)) { Text("Delete") }
+                    shape = RoundedCornerShape(10.dp)
+                ) { Text("Delete") }
             },
             dismissButton = {
                 OutlinedButton(onClick = { deleteTarget = null },
@@ -168,44 +223,90 @@ private fun TransactionCard(transaction: Transaction, onDelete: () -> Unit) {
     val isDebit = transaction.isDebit
     val color = if (isDebit) AccentRed else AccentGreen
     val bgColor = if (isDebit) Color(0xFFFFF0F2) else Color(0xFFF0FBF7)
+    val categoryEmoji = getCategoryEmoji(transaction.category)
 
     Card(
-        modifier = Modifier.fillMaxWidth().shadow(3.dp, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(14.dp)),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Category emoji circle
             Box(
                 Modifier.size(44.dp).clip(CircleShape).background(bgColor),
                 Alignment.Center
             ) {
-                Text(if (isDebit) "↑" else "↓", fontSize = 20.sp, color = color,
-                    fontWeight = FontWeight.ExtraBold)
+                Text(categoryEmoji, fontSize = 20.sp)
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(transaction.merchant ?: transaction.bank, fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp, color = Color(0xFF0D1B4B))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    transaction.merchant ?: transaction.bank,
+                    fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
+                    color = Color(0xFF0D1B4B)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
                     Surface(shape = RoundedCornerShape(4.dp), color = bgColor) {
-                        Text(transaction.category, fontSize = 10.sp, color = color,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        Text(
+                            transaction.category.replaceFirstChar { it.uppercase() },
+                            fontSize = 10.sp, color = color,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
                     }
-                    Text("·", color = Color(0xFF6B7DB3), fontSize = 11.sp)
+                    Text("·", color = Color(0xFF6B7DB3), fontSize = 10.sp)
                     Text(transaction.date, fontSize = 11.sp, color = Color(0xFF6B7DB3))
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text("${if (isDebit) "-" else "+"}₹${transaction.amount.toLong()}",
-                    color = color, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(
+                    "${if (isDebit) "-" else "+"}₹${transaction.amount.toLong()}",
+                    color = color, fontWeight = FontWeight.Bold, fontSize = 15.sp
+                )
                 transaction.balance?.let {
                     Text("₹${it.toLong()}", fontSize = 10.sp, color = Color(0xFF6B7DB3))
                 }
             }
             Spacer(Modifier.width(4.dp))
-            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Delete, null, tint = Color(0xFFCCD0E0), modifier = Modifier.size(16.dp))
+            IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.Delete, null, tint = Color(0xFFDDE0EE),
+                    modifier = Modifier.size(15.dp))
             }
         }
     }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+private fun getMonthLabel(dateStr: String): String {
+    return try {
+        val sdf = SimpleDateFormat("dd/MM/yy", Locale.getDefault())
+        val date = sdf.parse(dateStr) ?: return dateStr
+        val cal = Calendar.getInstance().apply { time = date }
+        val months = listOf("Jan","Feb","Mar","Apr","May","Jun",
+            "Jul","Aug","Sep","Oct","Nov","Dec")
+        "${months[cal.get(Calendar.MONTH)]} ${cal.get(Calendar.YEAR)}"
+    } catch (e: Exception) { dateStr }
+}
+
+private fun parseMonthForSort(label: String): String {
+    return try {
+        val sdf = SimpleDateFormat("MMM yyyy", Locale.getDefault())
+        val date = sdf.parse(label) ?: return label
+        SimpleDateFormat("yyyyMM", Locale.getDefault()).format(date)
+    } catch (e: Exception) { label }
+}
+
+private fun getCategoryEmoji(category: String): String = when (category.lowercase()) {
+    "food" -> "🍽️"
+    "shopping" -> "🛍️"
+    "travel" -> "🚗"
+    "bills" -> "⚡"
+    "health" -> "🏥"
+    "entertainment" -> "🎬"
+    "education" -> "📚"
+    "salary" -> "💰"
+    "investment" -> "📈"
+    "transfer" -> "↔️"
+    else -> "💳"
 }
