@@ -1,72 +1,52 @@
 package com.spending.intelligence.sms
 
-/**
- * Filters incoming SMS to determine if it's a supported bank transaction SMS.
- * Returns null for OTPs, promotional messages, and unsupported banks.
- */
+import android.util.Log
+
 object SmsFilter {
+    private const val TAG = "SmsFilter"
 
-    // Supported bank sender IDs
-    private val SUPPORTED_SENDERS = setOf(
-        "CANBNK", "CANARABANK", "CANARA",
-        "HDFCBK", "HDFC",
-        "SBIINB", "SBIUPI", "SBI",
-        "ICICIB", "ICICI",
-        "AXISBK", "AXIS",
-        "KOTAKB", "KOTAK",
-        "PNBSMS", "PNB",
-        "BOIIND", "BANKOFIND"
+    // All real sender IDs observed from Canara Bank
+    private val BANK_SENDERS = listOf(
+        "canara", "canarabank", "canbnk", "canbank",
+        "ax-canbnk", "ad-canbnk", "vk-canbnk", "tm-canbnk",
+        "hdfcbk", "hdfc", "sbiupi", "sbiinb", "sbi",
+        "icicib", "icici", "axisbk", "axis",
+        "kotak", "pnb", "iob", "boi"
     )
 
-    // Keywords that indicate a transaction (not OTP or promo)
-    private val TRANSACTION_KEYWORDS = listOf(
-        "debited", "credited", "debit", "credit",
-        "Dr.", "Cr.", "INR", "Rs.", "₹",
-        "transaction", "transfer", "payment",
-        "withdrawn", "deposited", "balance"
-    )
-
-    // Keywords that indicate OTP — always skip these
+    // OTP indicators — always skip
     private val OTP_KEYWORDS = listOf(
-        "OTP", "One Time Password", "verification code",
-        "not share", "do not share", "confidential"
+        "one time password", "otp for", "otp is", "your otp",
+        "verification code", "do not share", "not share your otp"
     )
 
-    // Keywords that indicate promotional messages — skip
-    private val PROMO_KEYWORDS = listOf(
-        "offer", "discount", "cashback", "reward",
-        "earn points", "click here", "limited time",
-        "congratulations", "winner", "prize"
-    )
-
-    /**
-     * Returns the raw SMS body if it should be forwarded to the backend.
-     * Returns null if the SMS should be ignored.
-     */
     fun filter(sender: String, body: String): String? {
-        val senderUpper = sender.uppercase()
-        val bodyUpper = body.uppercase()
+        val senderLower = sender.lowercase()
+        val bodyLower = body.lowercase()
 
-        // Must be from a supported bank sender
-        val isSupportedBank = SUPPORTED_SENDERS.any { senderUpper.contains(it) } ||
-                TRANSACTION_KEYWORDS.any { body.contains(it, ignoreCase = true) } &&
-                (body.contains("INR", ignoreCase = false) || body.contains("Rs.") || body.contains("₹"))
+        Log.d(TAG, "SMS from='$sender' body=${body.take(60)}")
 
-        if (!isSupportedBank) return null
+        // Skip OTPs immediately
+        if (OTP_KEYWORDS.any { bodyLower.contains(it) }) {
+            Log.d(TAG, "SKIPPED: OTP")
+            return null
+        }
 
-        // Reject OTPs
-        if (OTP_KEYWORDS.any { body.contains(it, ignoreCase = true) }) return null
+        // Check if it's from a bank sender
+        val isBankSender = BANK_SENDERS.any { senderLower.contains(it) }
 
-        // Reject promotions
-        if (PROMO_KEYWORDS.any { body.contains(it, ignoreCase = true) }) return null
+        // Check if body looks like a transaction
+        val hasAmount = Regex("""(?:inr|rs\.?|₹)\s*[\d,]+""", RegexOption.IGNORE_CASE).containsMatchIn(body)
+        val hasDebitCredit = bodyLower.contains("dr.") || bodyLower.contains("cr.") ||
+                bodyLower.contains("debited") || bodyLower.contains("credited") ||
+                bodyLower.contains("paid thru") || bodyLower.contains("has been debit")
 
-        // Must contain a monetary amount pattern
-        val hasAmount = Regex("""(?:INR|Rs\.?|₹)\s*[\d,]+\.?\d*""").containsMatchIn(body)
-        if (!hasAmount) return null
+        if (isBankSender && hasAmount && (hasDebitCredit || bodyLower.contains("bal "))) {
+            Log.d(TAG, "ACCEPTED")
+            return body
+        }
 
-        return body
+        Log.d(TAG, "SKIPPED: not a transaction")
+        return null
     }
-
-    fun isBankSender(sender: String): Boolean =
-        SUPPORTED_SENDERS.any { sender.uppercase().contains(it) }
 }

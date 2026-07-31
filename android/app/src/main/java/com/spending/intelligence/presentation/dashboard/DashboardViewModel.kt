@@ -1,5 +1,6 @@
 package com.spending.intelligence.presentation.dashboard
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.spending.intelligence.data.repository.SpendingRepository
@@ -14,7 +15,6 @@ data class DashboardUiState(
     val isLoading: Boolean = false,
     val summary: DashboardSummary? = null,
     val healthScore: HealthScore? = null,
-    val pendingSmsCount: Int = 0,
     val error: String? = null
 )
 
@@ -31,17 +31,42 @@ class DashboardViewModel @Inject constructor(
     fun load() {
         viewModelScope.launch {
             _state.value = DashboardUiState(isLoading = true)
-            val summaryResult = repository.getDashboardSummary()
+            try {
+                Log.d("Dashboard", "Fetching dashboard summary...")
+                val summaryResult = repository.getDashboardSummary()
+                Log.d("Dashboard", "Summary result: $summaryResult")
 
-            // Health score is optional — don't crash dashboard if it fails
-            val healthResult = try { repository.getHealthScore() } catch (e: Exception) { null }
+                val healthScore = try {
+                    val h = repository.getHealthScore()
+                    Log.d("Dashboard", "Health result: $h")
+                    (h as? ApiResult.Success)?.data
+                } catch (e: Exception) {
+                    Log.w("Dashboard", "Health score failed (non-fatal): ${e.message}")
+                    null
+                }
 
-            _state.value = DashboardUiState(
-                isLoading = false,
-                summary = (summaryResult as? ApiResult.Success)?.data,
-                healthScore = if (healthResult is ApiResult.Success) healthResult.data else null,
-                error = (summaryResult as? ApiResult.Error)?.message
-            )
+                when (summaryResult) {
+                    is ApiResult.Success -> _state.value = DashboardUiState(
+                        isLoading = false,
+                        summary = summaryResult.data,
+                        healthScore = healthScore
+                    )
+                    is ApiResult.Error -> {
+                        Log.e("Dashboard", "Summary error: ${summaryResult.message}")
+                        _state.value = DashboardUiState(
+                            isLoading = false,
+                            error = summaryResult.message
+                        )
+                    }
+                    else -> _state.value = DashboardUiState(isLoading = false, error = "Unknown error")
+                }
+            } catch (e: Exception) {
+                Log.e("Dashboard", "Unexpected crash: ${e::class.simpleName}: ${e.message}", e)
+                _state.value = DashboardUiState(
+                    isLoading = false,
+                    error = "${e::class.simpleName}: ${e.message}"
+                )
+            }
         }
     }
 }

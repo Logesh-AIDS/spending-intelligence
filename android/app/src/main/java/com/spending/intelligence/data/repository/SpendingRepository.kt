@@ -1,21 +1,27 @@
 package com.spending.intelligence.data.repository
 
+import android.util.Log
 import com.spending.intelligence.data.local.TokenDataStore
+import com.spending.intelligence.data.local.TokenHolder
 import com.spending.intelligence.data.local.dao.TransactionDao
 import com.spending.intelligence.data.local.entity.TransactionEntity
 import com.spending.intelligence.data.remote.api.SpendingApi
 import com.spending.intelligence.data.remote.dto.*
 import com.spending.intelligence.domain.model.*
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "SpendingRepository"
 
 @Singleton
 class SpendingRepository @Inject constructor(
     private val api: SpendingApi,
     private val transactionDao: TransactionDao,
-    private val tokenDataStore: TokenDataStore
+    private val tokenDataStore: TokenDataStore,
+    private val tokenHolder: TokenHolder   // in-memory token for OkHttp interceptor
 ) {
 
     // ── Auth ──────────────────────────────────────────────────────────────────
@@ -25,12 +31,17 @@ class SpendingRepository @Inject constructor(
             val response = api.login(LoginRequest(email, password))
             if (response.isSuccessful) {
                 val token = response.body()!!.accessToken
+                // Save to both DataStore (persistent) and TokenHolder (immediate OkHttp use)
                 tokenDataStore.saveToken(token)
+                tokenHolder.token = token
+                Log.d(TAG, "Login success, token set in holder")
                 ApiResult.Success(token)
             } else {
+                Log.e(TAG, "Login failed: ${response.code()}")
                 ApiResult.Error("Incorrect email or password", response.code())
             }
         } catch (e: Exception) {
+            Log.e(TAG, "Login exception: ${e.message}")
             ApiResult.Error("Network error: ${e.message}")
         }
     }
@@ -40,9 +51,11 @@ class SpendingRepository @Inject constructor(
             val response = api.register(RegisterRequest(email, password, fullName))
             if (response.isSuccessful) {
                 val user = response.body()!!
+                // Auto-login after register
+                login(email, password)
                 ApiResult.Success(User(user.id, user.email, user.fullName, user.isActive))
             } else {
-                ApiResult.Error("Registration failed", response.code())
+                ApiResult.Error("Registration failed (${response.code()})", response.code())
             }
         } catch (e: Exception) {
             ApiResult.Error("Network error: ${e.message}")
@@ -57,14 +70,31 @@ class SpendingRepository @Inject constructor(
                 tokenDataStore.saveUserInfo(u.email, u.fullName)
                 ApiResult.Success(User(u.id, u.email, u.fullName, u.isActive))
             } else {
-                ApiResult.Error("Could not load profile", response.code())
+                ApiResult.Error("Profile load failed (${response.code()})", response.code())
             }
         } catch (e: Exception) {
             ApiResult.Error("Network error")
         }
     }
 
-    suspend fun logout() = tokenDataStore.clearAll()
+    /**
+     * Restore token from DataStore into TokenHolder on app startup / after process restart.
+     * Must be called before any API call.
+     */
+    suspend fun restoreToken() {
+        val saved = tokenDataStore.token.first()
+        if (!saved.isNullOrBlank()) {
+            tokenHolder.token = saved
+            Log.d(TAG, "Token restored from DataStore into TokenHolder")
+        } else {
+            Log.w(TAG, "No saved token found")
+        }
+    }
+
+    suspend fun logout() {
+        tokenHolder.token = null
+        tokenDataStore.clearAll()
+    }
 
     val savedToken: Flow<String?> = tokenDataStore.token
 
@@ -72,8 +102,10 @@ class SpendingRepository @Inject constructor(
 
     suspend fun getDashboardSummary(): ApiResult<DashboardSummary> {
         return try {
+            Log.d(TAG, "Calling /dashboard/summary, token in holder: ${tokenHolder.token?.take(20)}")
             val r = api.getDashboardSummary()
-            if (r.isSuccessful) {
+            Log.d(TAG, "Dashboard response: ${r.code()}")
+            if (r.isSuccessful && r.body() != null) {
                 val d = r.body()!!
                 ApiResult.Success(
                     DashboardSummary(
@@ -89,21 +121,25 @@ class SpendingRepository @Inject constructor(
                         avgDailySpending = d.avgDailySpending,
                         recentTransactions = d.recentTransactions.map { it.toRecentDomain() }
                     )
-                )            } else ApiResult.Error("Could not load dashboard", r.code())
+                )
+            } else {
+                ApiResult.Error("Dashboard failed (${r.code()})", r.code())
+            }
         } catch (e: Exception) {
-            ApiResult.Error("Network error")
+            Log.e(TAG, "Dashboard exception: ${e.message}", e)
+            ApiResult.Error("Network error: ${e.message}")
         }
     }
 
     suspend fun getHealthScore(): ApiResult<HealthScore> {
         return try {
             val r = api.getHealthScore()
-            if (r.isSuccessful) {
+            if (r.isSuccessful && r.body() != null) {
                 val h = r.body()!!
                 ApiResult.Success(HealthScore(h.score, h.grade, h.interpretation, h.improvementTips))
-            } else ApiResult.Error("Could not load health score", r.code())
+            } else ApiResult.Error("Health score failed (${r.code()})", r.code())
         } catch (e: Exception) {
-            ApiResult.Error("Network error")
+            ApiResult.Error("Network error: ${e.message}")
         }
     }
 
@@ -118,13 +154,14 @@ class SpendingRepository @Inject constructor(
     suspend fun syncTransactions(): ApiResult<Unit> {
         return try {
             val r = api.getTransactions(pageSize = 100)
-            if (r.isSuccessful) {
+            if (r.isSuccessful && r.body() != null) {
                 val txns = r.body()!!.transactions.map { it.toEntity() }
                 transactionDao.upsertAll(txns)
+                Log.d(TAG, "Synced ${txns.size} transactions")
                 ApiResult.Success(Unit)
-            } else ApiResult.Error("Sync failed", r.code())
+            } else ApiResult.Error("Sync failed (${r.code()})", r.code())
         } catch (e: Exception) {
-            ApiResult.Error("Network error")
+            ApiResult.Error("Network error: ${e.message}")
         }
     }
 
@@ -134,7 +171,7 @@ class SpendingRepository @Inject constructor(
             if (r.isSuccessful) {
                 transactionDao.deleteById(id)
                 ApiResult.Success(Unit)
-            } else ApiResult.Error("Delete failed", r.code())
+            } else ApiResult.Error("Delete failed (${r.code()})", r.code())
         } catch (e: Exception) {
             ApiResult.Error("Network error")
         }
@@ -150,7 +187,7 @@ class SpendingRepository @Inject constructor(
                     Notification(it.id, it.title, it.message, it.type, it.priority,
                         it.aiExplanation, it.recommendedAction, it.isRead, it.createdAt)
                 })
-            } else ApiResult.Error("Failed", r.code())
+            } else ApiResult.Error("Failed (${r.code()})", r.code())
         } catch (e: Exception) {
             ApiResult.Error("Network error")
         }
@@ -170,7 +207,7 @@ class SpendingRepository @Inject constructor(
                     Goal(it.id, it.title, it.goalType, it.targetAmount, it.currentAmount,
                         it.category, it.deadline, it.isAchieved, it.progressPercentage, it.aiPrediction)
                 })
-            } else ApiResult.Error("Failed", r.code())
+            } else ApiResult.Error("Failed (${r.code()})", r.code())
         } catch (e: Exception) {
             ApiResult.Error("Network error")
         }
@@ -194,17 +231,9 @@ private fun TransactionEntity.toDomain() = Transaction(
     merchant, upiReference, balance, category, createdAt
 )
 
-// Maps the simplified dashboard recent_transactions shape (missing some fields)
-private fun com.spending.intelligence.data.remote.dto.RecentTransactionDto.toRecentDomain() = Transaction(
-    id = id,
-    bank = bank,
-    accountNumber = accountNumber,
-    transactionType = transactionType,
-    amount = amount,
-    date = date,
-    merchant = merchant,
-    upiReference = upiReference,
-    balance = balance,
-    category = category,
-    createdAt = createdAt ?: ""
+private fun RecentTransactionDto.toRecentDomain() = Transaction(
+    id = id, bank = bank, accountNumber = accountNumber,
+    transactionType = transactionType, amount = amount, date = date,
+    merchant = merchant, upiReference = upiReference,
+    balance = balance, category = category, createdAt = createdAt ?: ""
 )

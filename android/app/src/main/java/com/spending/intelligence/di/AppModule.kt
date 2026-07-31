@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.spending.intelligence.BuildConfig
 import com.spending.intelligence.data.local.SpendingDatabase
 import com.spending.intelligence.data.local.TokenDataStore
+import com.spending.intelligence.data.local.TokenHolder
 import com.spending.intelligence.data.local.dao.PendingSmsDao
 import com.spending.intelligence.data.local.dao.TransactionDao
 import com.spending.intelligence.data.remote.api.SpendingApi
@@ -13,8 +14,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -39,11 +38,10 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(tokenDataStore: TokenDataStore): OkHttpClient {
+    fun provideOkHttpClient(tokenHolder: TokenHolder): OkHttpClient {
         val authInterceptor = Interceptor { chain ->
-            // Read token synchronously (DataStore provides it from disk cache)
-            val token = runBlocking { tokenDataStore.token.first() }
-            val request = if (token != null) {
+            val token = tokenHolder.token
+            val request = if (!token.isNullOrBlank()) {
                 chain.request().newBuilder()
                     .addHeader("Authorization", "Bearer $token")
                     .build()
@@ -58,11 +56,11 @@ object AppModule {
             .apply {
                 if (BuildConfig.DEBUG) {
                     addInterceptor(HttpLoggingInterceptor().apply {
-                        level = HttpLoggingInterceptor.Level.BODY
+                        level = HttpLoggingInterceptor.Level.HEADERS
                     })
                 }
             }
-            .connectTimeout(15, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
     }

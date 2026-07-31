@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
 import android.util.Log
+import com.spending.intelligence.data.local.TokenHolder
 import com.spending.intelligence.data.local.dao.PendingSmsDao
 import com.spending.intelligence.data.local.entity.PendingSmsEntity
 import com.spending.intelligence.data.remote.api.SpendingApi
@@ -15,51 +16,89 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * Receives incoming SMS instantly.
- * Calls the backend API directly in a coroutine — no WorkManager delay.
- * Falls back to local queue if network is unavailable.
- */
+private const val TAG = "SmsReceiver"
+
 @AndroidEntryPoint
 class SmsReceiver : BroadcastReceiver() {
 
     @Inject lateinit var pendingSmsDao: PendingSmsDao
     @Inject lateinit var api: SpendingApi
+    @Inject lateinit var tokenHolder: TokenHolder
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
+        Log.d(TAG, "onReceive called with action: ${intent.action}")
 
-        val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
-        val pendingResult = goAsync() // keeps receiver alive during async work
+        if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
+            Log.d(TAG, "Ignoring non-SMS action")
+            return
+        }
+
+        val messages = try {
+            Telephony.Sms.Intents.getMessagesFromIntent(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get messages: ${e.message}")
+            return
+        }
+
+        if (messages.isNullOrEmpty()) {
+            Log.w(TAG, "No messages in intent")
+            return
+        }
+
+        val pendingResult = goAsync()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 for (msg in messages) {
-                    val sender = msg.originatingAddress ?: continue
+                    val sender = msg.originatingAddress ?: "Unknown"
                     val body = msg.messageBody ?: continue
 
-                    val filteredSms = SmsFilter.filter(sender, body) ?: continue
+                    Log.d(TAG, "SMS from '$sender': ${body.take(80)}")
 
-                    Log.d("SmsReceiver", "Bank SMS detected: ${body.take(50)}")
+                    val filteredBody = SmsFilter.filter(sender, body)
+                    if (filteredBody == null) {
+                        Log.d(TAG, "SMS filtered out")
+                        continue
+                    }
 
-                    // Try direct API call first (instant if online)
-                    try {
-                        val response = api.parseSms(SmsRequest(filteredSms))
-                        if (response.isSuccessful) {
-                            Log.d("SmsReceiver", "✅ SMS uploaded instantly")
-                        } else if (response.code() == 422) {
-                            Log.w("SmsReceiver", "SMS format not supported (422)")
-                        } else {
-                            // API failed — save to queue for retry
-                            pendingSmsDao.insert(PendingSmsEntity(rawSms = filteredSms))
-                            Log.w("SmsReceiver", "API returned ${response.code()} — queued for retry")
+                    Log.d(TAG, "Processing bank SMS from $sender")
+
+                    // Always save to local queue first (offline safety)
+                    val queueId = pendingSmsDao.insert(PendingSmsEntity(rawSms = filteredBody))
+                    Log.d(TAG, "Saved to queue with id=$queueId")
+
+                    // Try immediate upload if token is available
+                    val token = tokenHolder.token
+                    if (!token.isNullOrBlank()) {
+                        try {
+                            Log.d(TAG, "Uploading SMS to backend immediately...")
+                            val response = api.parseSms(SmsRequest(filteredBody))
+                            when {
+                                response.isSuccessful -> {
+                                    // Remove from queue — successfully uploaded
+                                    pendingSmsDao.deleteById(queueId)
+                                    Log.d(TAG, "✅ SMS uploaded instantly, removed from queue")
+                                }
+                                response.code() == 422 -> {
+                                    // SMS format not supported by backend parser — remove from queue
+                                    pendingSmsDao.deleteById(queueId)
+                                    Log.w(TAG, "SMS format not supported (422) — removed from queue")
+                                }
+                                else -> {
+                                    // Server error — keep in queue for retry
+                                    Log.w(TAG, "Upload failed (${response.code()}) — will retry from queue")
+                                }
+                            }
+                        } catch (networkError: Exception) {
+                            // No network — stays in queue, WorkManager will retry
+                            Log.w(TAG, "Network error — SMS stays in queue: ${networkError.message}")
                         }
-                    } catch (networkError: Exception) {
-                        // No internet — save to queue, WorkManager will retry
-                        pendingSmsDao.insert(PendingSmsEntity(rawSms = filteredSms))
-                        Log.w("SmsReceiver", "Offline — SMS queued: ${networkError.message}")
+                    } else {
+                        Log.w(TAG, "No token available — SMS queued for later upload")
                     }
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Unexpected error in SMS processing: ${e.message}", e)
             } finally {
                 pendingResult.finish()
             }

@@ -49,6 +49,7 @@ fun DashboardScreen(
                 padding = padding,
                 onNavigate = onNavigate
             )
+            else -> ErrorScreen("No data") { viewModel.load() }
         }
     }
 }
@@ -133,30 +134,54 @@ private fun HeroBalanceCard(summary: DashboardSummary) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(
                 brush = Brush.linearGradient(
-                    colors = listOf(GradientStart, GradientEnd)
+                    colors = listOf(
+                        Color(0xFF0F3460),   // deep navy
+                        Color(0xFF16213E),   // dark blue
+                        Color(0xFF1A1A2E)    // very dark blue-black
+                    ),
+                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                    end = androidx.compose.ui.geometry.Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
                 )
             )
             .padding(24.dp)
     ) {
+        // Decorative circle — subtle background element
+        Box(
+            modifier = Modifier
+                .size(160.dp)
+                .align(Alignment.TopEnd)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.04f))
+        )
+
         Column {
-            Text("Current Balance", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
-            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("💳", fontSize = 16.sp)
+                Spacer(Modifier.width(6.dp))
+                Text("Current Balance", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+            }
+            Spacer(Modifier.height(6.dp))
             Text(
                 text = summary.currentBalance?.let { "₹${formatAmount(it)}" } ?: "—",
                 color = Color.White,
-                fontSize = 36.sp,
-                fontWeight = FontWeight.Bold
+                fontSize = 38.sp,
+                fontWeight = FontWeight.ExtraBold
             )
+            Spacer(Modifier.height(20.dp))
+
+            // Divider
+            HorizontalDivider(color = Color.White.copy(alpha = 0.15f), thickness = 1.dp)
             Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                MiniStat("Income", "₹${formatAmount(summary.totalIncome)}", AccentGreen)
-                MiniStat("Expenses", "₹${formatAmount(summary.totalSpending)}", Color(0xFFFF8FA3))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                MiniStat("Income", "₹${formatAmount(summary.totalIncome)}", Color(0xFF4ADE80))
+                MiniStat("Expenses", "₹${formatAmount(summary.totalSpending)}", Color(0xFFFF7096))
                 MiniStat("Savings", "${summary.savingsPercentage.toInt()}%",
-                    if (summary.savingsPercentage >= 20) AccentGreen else AccentOrange)
+                    if (summary.savingsPercentage >= 20) Color(0xFF4ADE80) else Color(0xFFFFB347))
             }
         }
     }

@@ -31,12 +31,9 @@ class AuthViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _uiState.value = AuthUiState(isLoading = true)
+            // repository.login() now sets TokenHolder immediately
             when (val result = repository.login(email.trim(), password)) {
-                is ApiResult.Success -> {
-                    // After login, fetch user profile
-                    repository.getCurrentUser()
-                    _uiState.value = AuthUiState(isSuccess = true)
-                }
+                is ApiResult.Success -> _uiState.value = AuthUiState(isSuccess = true)
                 is ApiResult.Error -> _uiState.value = AuthUiState(error = result.message)
                 else -> {}
             }
@@ -50,16 +47,9 @@ class AuthViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _uiState.value = AuthUiState(isLoading = true)
-            // Register then auto-login
-            when (val reg = repository.register(email.trim(), password, fullName.trim())) {
-                is ApiResult.Success -> {
-                    when (val login = repository.login(email.trim(), password)) {
-                        is ApiResult.Success -> _uiState.value = AuthUiState(isSuccess = true)
-                        is ApiResult.Error -> _uiState.value = AuthUiState(error = login.message)
-                        else -> {}
-                    }
-                }
-                is ApiResult.Error -> _uiState.value = AuthUiState(error = reg.message)
+            when (val result = repository.register(email.trim(), password, fullName.trim())) {
+                is ApiResult.Success -> _uiState.value = AuthUiState(isSuccess = true)
+                is ApiResult.Error -> _uiState.value = AuthUiState(error = result.message)
                 else -> {}
             }
         }
