@@ -19,8 +19,6 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
 
-private const val TAG = "SmsSyncWorker"
-
 // SharedPreferences key — stores set of Android SMS IDs already uploaded
 private const val PREFS_UPLOADED = "sms_uploaded_ids"
 private const val KEY_IDS = "uploaded_sms_ids"
@@ -36,7 +34,7 @@ class SmsSyncWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, workerParams) {
 
     companion object {
-        const val TAG_PERIODIC = "SmsSyncWorker"
+        const val TAG = "SmsSyncWorker"
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "sms_sync"
 
@@ -48,7 +46,7 @@ class SmsSyncWorker @AssistedInject constructor(
                         .build()
                 )
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-                .addTag(TAG_PERIODIC)
+                .addTag(TAG)
                 .build()
     }
 
