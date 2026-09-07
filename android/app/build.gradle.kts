@@ -20,15 +20,15 @@ android {
 
     buildTypes {
         debug {
-            // Production backend on Railway — works from ANY network
-            buildConfigField("String", "BASE_URL", "\"https://spending-intelligence-production.up.railway.app/api/v1/\"")
+            // Production backend on Render — works from ANY network
+            buildConfigField("String", "BASE_URL", "\"https://spending-intelligence-2.onrender.com/api/v1/\"")
             buildConfigField("String", "ENV", "\"debug\"")
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            buildConfigField("String", "BASE_URL", "\"https://spending-intelligence-production.up.railway.app/api/v1/\"")
+            buildConfigField("String", "BASE_URL", "\"https://spending-intelligence-2.onrender.com/api/v1/\"")
             buildConfigField("String", "ENV", "\"release\"")
         }
     }

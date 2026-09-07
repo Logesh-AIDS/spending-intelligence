@@ -21,7 +21,7 @@ function DownloadSection() {
   const [downloading, setDownloading] = useState(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') ||
-    'https://spending-intelligence-production.up.railway.app';
+    'https://spending-intelligence-2.onrender.com';
 
   useEffect(() => {
     // Check if APK is available
