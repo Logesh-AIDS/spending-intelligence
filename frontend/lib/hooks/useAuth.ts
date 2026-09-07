@@ -16,6 +16,7 @@ export const useRegister = () => {
   const { setToken, setUser } = useAuthStore();
 
   return useMutation({
+    retry: 1, // retry once if cold-start causes a timeout
     mutationFn: async (data: RegisterRequest) => {
       // Step 1: Create account
       await apiClient.post<User>('/auth/register', data);
@@ -53,6 +54,7 @@ export const useLogin = () => {
   const { setToken, setUser } = useAuthStore();
 
   return useMutation({
+    retry: 1, // retry once if cold-start causes a timeout
     mutationFn: async (data: LoginRequest) => {
       // Step 1: Get token
       const loginRes = await apiClient.post<{ access_token: string; token_type: string }>(

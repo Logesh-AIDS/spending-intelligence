@@ -87,7 +87,7 @@ export default function RegisterPage() {
           )}
 
           <Button type="submit" disabled={isPending} className="w-full">
-            {isPending ? 'Creating account...' : 'Sign Up'}
+            {isPending ? 'Creating account… (may take ~30s on first load)' : 'Sign Up'}
           </Button>
         </form>
 
