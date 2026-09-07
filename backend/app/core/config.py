@@ -25,10 +25,9 @@ class Settings:
     # ── Database ──────────────────────────────────────────────────
     # Falls back to SQLite for local dev; use PostgreSQL in production
     _db_path = Path(__file__).parent.parent.parent.parent / "spending.db"
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        f"sqlite:///{_db_path}"
-    )
+    _raw_db_url = os.getenv("DATABASE_URL", f"sqlite:///{_db_path}")
+    # Render gives postgres:// but SQLAlchemy requires postgresql://
+    DATABASE_URL: str = _raw_db_url.replace("postgres://", "postgresql://", 1) if _raw_db_url.startswith("postgres://") else _raw_db_url
 
     # ── Redis ─────────────────────────────────────────────────────
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")

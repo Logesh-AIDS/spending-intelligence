@@ -6,6 +6,10 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 # Use DATABASE_URL from environment if set, otherwise default to local SQLite
 _DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Render gives postgres:// but SQLAlchemy requires postgresql://
+if _DATABASE_URL and _DATABASE_URL.startswith("postgres://"):
+    _DATABASE_URL = _DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 if not _DATABASE_URL:
     # Absolute path — works regardless of working directory
     _DB_PATH = Path(__file__).parent.parent.parent / "spending.db"
