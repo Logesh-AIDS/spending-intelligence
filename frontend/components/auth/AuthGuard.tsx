@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { useCurrentUser } from '@/lib/hooks/useAuth';
@@ -11,27 +11,24 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
-  const { token, isAuthenticated } = useAuthStore();
-  const [hydrated, setHydrated] = useState(false);
-
-  // Wait one tick for Zustand to read localStorage before making any decisions
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
+  // _hasHydrated is set to true by Zustand's persist middleware after it reads localStorage
+  const token = useAuthStore((s) => s.token);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
 
   // Rehydrate user profile from token if page was refreshed
   useCurrentUser();
 
   useEffect(() => {
-    if (hydrated && !token) {
+    // Only redirect once Zustand has finished reading from localStorage
+    if (hasHydrated && !token) {
       router.replace('/login');
     }
-  }, [hydrated, token, router]);
+  }, [hasHydrated, token, router]);
 
-  // Don't render or redirect until hydration is complete
-  if (!hydrated) return null;
+  // Still reading localStorage — render nothing yet
+  if (!hasHydrated) return null;
 
-  // No token after hydration → redirect is in progress, show nothing
+  // Hydrated but no token → redirect in progress
   if (!token) return null;
 
   return <>{children}</>;
