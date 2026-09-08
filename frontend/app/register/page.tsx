@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRegister } from '@/lib/hooks/useAuth';
+import { useAuthStore } from '@/lib/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,14 +16,18 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { mutate: register, isPending, error } = useRegister();
+  const setToken = useAuthStore((s) => s.setToken);
+  const setUser = useAuthStore((s) => s.setUser);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     register(
       { full_name, email, password },
       {
-        onSuccess: () => {
-          router.push('/dashboard');   // fixed: was /dashboard/dashboard
+        onSuccess: ({ token, user }) => {
+          setToken(token);
+          setUser(user);
+          setTimeout(() => router.push('/dashboard'), 50);
         },
       }
     );
@@ -52,6 +57,7 @@ export default function RegisterPage() {
               value={full_name}
               onChange={(e) => setFullName(e.target.value)}
               required
+              autoComplete="name"
             />
           </div>
 
@@ -64,6 +70,7 @@ export default function RegisterPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
             />
           </div>
 
@@ -77,6 +84,7 @@ export default function RegisterPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
+              autoComplete="new-password"
             />
           </div>
 

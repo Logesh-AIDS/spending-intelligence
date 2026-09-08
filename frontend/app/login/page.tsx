@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLogin } from '@/lib/hooks/useAuth';
+import { useAuthStore } from '@/lib/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,14 +15,22 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { mutate: login, isPending, error } = useLogin();
+  const setToken = useAuthStore((s) => s.setToken);
+  const setUser = useAuthStore((s) => s.setUser);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     login(
       { email, password },
       {
-        onSuccess: () => {
-          router.push('/dashboard');   // fixed: was /dashboard/dashboard
+        onSuccess: ({ token, user }) => {
+          // Explicitly set into store first, then navigate.
+          // useLogin's onSuccess also sets these, but calling them here
+          // guarantees the store is updated before router.push runs.
+          setToken(token);
+          setUser(user);
+          // Small tick to let Zustand persist to localStorage before navigation
+          setTimeout(() => router.push('/dashboard'), 50);
         },
       }
     );
@@ -59,6 +68,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
             />
           </div>
 
@@ -71,6 +81,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
             />
           </div>
 
@@ -81,7 +92,7 @@ export default function LoginPage() {
           )}
 
           <Button type="submit" disabled={isPending} className="w-full">
-            {isPending ? 'Signing in...' : 'Sign In'}
+            {isPending ? 'Signing in…' : 'Sign In'}
           </Button>
         </form>
 
