@@ -26,6 +26,7 @@ from app.models.automation import Notification, Goal, FinancialHealthScore, JobL
 from app.api.auth import router as auth_router
 from app.api.sms import router as sms_router
 from app.api.transactions import router as transactions_router
+from app.api.statements import router as statements_router
 from app.api.dashboard import router as dashboard_router
 from app.api.analytics import router as analytics_router
 from app.api.ml import router as ml_router
@@ -99,6 +100,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(sms_router)
 app.include_router(transactions_router)
+app.include_router(statements_router)
 app.include_router(dashboard_router)
 app.include_router(analytics_router)
 app.include_router(ml_router)

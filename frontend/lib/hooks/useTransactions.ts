@@ -124,3 +124,30 @@ export const useSendSMS = () => {
     },
   });
 };
+
+export interface UploadStatementResult {
+  message: string;
+  total_parsed: number;
+  imported: number;
+  skipped_duplicates: number;
+}
+
+export const useUploadStatement = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File): Promise<UploadStatementResult> => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await apiClient.post<UploadStatementResult>(
+        '/statements/upload',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
+    },
+  });
+};
