@@ -22,16 +22,24 @@ function useServerStatus() {
     let cancelled = false;
 
     const ping = async (attempt = 1): Promise<void> => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
       try {
-        const res = await fetch(`${url}/health`, { method: 'GET', cache: 'no-store' });
+        const res = await fetch(`${url}/health`, {
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
         if (!cancelled) setStatus(res.ok ? 'ready' : 'unreachable');
       } catch {
+        clearTimeout(timer);
         if (cancelled) return;
-        if (attempt <= 6) {
-          setStatus('waking');
-          setTimeout(() => ping(attempt + 1), 8000);
+        if (attempt <= 8) {
+          if (!cancelled) setStatus('waking');
+          setTimeout(() => ping(attempt + 1), 6000);
         } else {
-          setStatus('unreachable');
+          if (!cancelled) setStatus('unreachable');
         }
       }
     };
